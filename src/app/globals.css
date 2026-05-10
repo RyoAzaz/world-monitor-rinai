@@ -300,6 +300,11 @@ select {
   line-height: 1.7;
 }
 
+.news-item__summary--empty {
+  color: var(--subtle);
+  font-size: 0.76rem;
+}
+
 .news-item__source {
   color: var(--subtle);
   font-size: 0.72rem;

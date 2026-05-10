@@ -99,8 +99,12 @@ function NewsListItem({ item }: { item: NewsItem }) {
           {item.title}
         </a>
       </h2>
-      <p className="news-item__summary">
-        {item.summary || "公式RSSに概要は含まれていません。"}
+      <p
+        className={`news-item__summary${
+          item.summary ? "" : " news-item__summary--empty"
+        }`}
+      >
+        {item.summary || "概要なし"}
       </p>
       <div className="news-item__source">
         {item.source} ・ {formatPublishedAt(item.publishedAt)} JST

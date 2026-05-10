@@ -88,6 +88,9 @@ Alpha VantageのQQQ ETFは日次参照データです。リアルタイム価格
 - NewsPanelのLoading/Error表示
 
 ニュースは公式RSSに含まれる `title / source / url / publishedAt / summary` 程度の短い情報だけを表示します。記事本文のスクレイピング、長文本文の保存・再配布、AI要約、DB保存は行っていません。
+summaryはRSS itemの `description` または `summary` のみを使用します。本文に近い `content:encoded` は再配布リスクを避けるため使用しません。summaryが空の場合、NewsPanelでは「概要なし」と控えめに表示します。
+
+金融庁RSSのように `JST` 表記の日時が含まれる場合は、サーバー側で `+0900` として正規化します。`regionTags` は日本に加え、アジア、ASEAN、ADB、G7、G20、IMFをルールベースで付与します。`marketImpact` は採用、職員募集、調達、入札公告、メンテナンスなどを低影響として優先判定します。
 
 初期RSSソース:
 

@@ -34,8 +34,23 @@ const regionRules = [
   { tag: "米国", keywords: ["米国", "米", "FRB", "FOMC", "NASDAQ", "Nasdaq"] },
   { tag: "中国", keywords: ["中国", "人民元"] },
   { tag: "欧州", keywords: ["欧州", "EU", "ECB"] },
+  { tag: "アジア", keywords: ["アジア", "ＡＳＥＡＮ", "ASEAN", "ADB", "アジア開発銀行"] },
+  { tag: "ASEAN", keywords: ["ＡＳＥＡＮ", "ASEAN"] },
+  { tag: "ADB", keywords: ["ADB", "アジア開発銀行"] },
   { tag: "中東", keywords: ["中東", "原油", "OPEC", "紅海", "イスラエル"] },
+  { tag: "G7", keywords: ["G7", "Ｇ７"] },
+  { tag: "G20", keywords: ["G20", "Ｇ２０"] },
+  { tag: "IMF", keywords: ["IMF", "国際通貨基金"] },
   { tag: "世界", keywords: ["世界", "国際", "グローバル"] },
+];
+
+const lowImpactKeywords = [
+  "採用",
+  "職員募集",
+  "職員を募集",
+  "調達",
+  "入札公告",
+  "メンテナンス",
 ];
 
 const highImpactKeywords = [
@@ -122,8 +137,7 @@ function normalizeRssItem(
 
   const rawSummary =
     readText(record.description) ||
-    readText(record.summary) ||
-    readText(record["content:encoded"]);
+    readText(record.summary);
   const summary = truncate(cleanText(rawSummary), MAX_SUMMARY_LENGTH);
   const publishedAt = toIsoDate(
     readText(record.pubDate) || readText(record["dc:date"]) || readText(record.updated),
@@ -219,7 +233,8 @@ function toIsoDate(value: string, fallback: Date) {
     return fallback.toISOString();
   }
 
-  const parsed = new Date(value);
+  const normalizedValue = value.trim().replace(/\bJST\b/i, "+0900");
+  const parsed = new Date(normalizedValue);
 
   return Number.isNaN(parsed.getTime()) ? fallback.toISOString() : parsed.toISOString();
 }
@@ -237,6 +252,10 @@ function inferRegionTags(text: string, defaults: string[]) {
 }
 
 function inferMarketImpact(text: string): MarketImpact {
+  if (lowImpactKeywords.some((keyword) => text.includes(keyword))) {
+    return "low";
+  }
+
   if (highImpactKeywords.some((keyword) => text.includes(keyword))) {
     return "high";
   }
