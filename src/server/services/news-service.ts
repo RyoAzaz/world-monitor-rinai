@@ -1,4 +1,4 @@
-import type { NewsItem, NewsResponse } from "@/types/news";
+import type { NewsItem, NewsResponse, NewsSourceStatus } from "@/types/news";
 
 import { fetchRssSource } from "../providers/news/rss-provider";
 import { rssSources } from "../providers/news/rss-sources";
@@ -27,7 +27,10 @@ export async function getLatestNews(): Promise<NewsResponse> {
   const items = results.flatMap((result) =>
     result.status === "fulfilled" ? result.value : [],
   );
-  const failedCount = results.filter((result) => result.status === "rejected").length;
+  const sourceStatuses = buildSourceStatuses(results);
+  const failedCount = sourceStatuses.filter(
+    (sourceStatus) => sourceStatus.status === "error",
+  ).length;
 
   if (items.length === 0 && failedCount > 0) {
     throw new NewsServiceError(NEWS_FETCH_FAILED_MESSAGE);
@@ -43,7 +46,48 @@ export async function getLatestNews(): Promise<NewsResponse> {
       .slice(0, NEWS_LIMIT),
     fetchedAt: new Date().toISOString(),
     sources: rssSources.map((source) => source.name),
+    sourceStatuses,
+    partialFailure: failedCount > 0,
   };
+}
+
+function buildSourceStatuses(
+  results: PromiseSettledResult<NewsItem[]>[],
+): NewsSourceStatus[] {
+  return results.map((result, index) => {
+    const source = rssSources[index];
+
+    if (!source) {
+      return {
+        id: `unknown-${index}`,
+        name: "Unknown",
+        status: "error",
+        itemCount: 0,
+        error: "RSSソース定義が見つかりません。",
+      };
+    }
+
+    if (result.status === "fulfilled") {
+      return {
+        id: source.id,
+        name: source.name,
+        status: "ok",
+        itemCount: result.value.length,
+      };
+    }
+
+    return {
+      id: source.id,
+      name: source.name,
+      status: "error",
+      itemCount: 0,
+      error: getErrorMessage(result.reason),
+    };
+  });
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "RSS取得に失敗しました。";
 }
 
 function dedupeNewsItems(items: NewsItem[]) {

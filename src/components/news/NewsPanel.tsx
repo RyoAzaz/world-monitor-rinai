@@ -20,6 +20,7 @@ const impactLabel: Record<MarketImpact, string> = {
 export function NewsPanel() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [status, setStatus] = useState<ClientFetchStatus>("loading");
+  const [hasPartialFailure, setHasPartialFailure] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -36,10 +37,12 @@ export function NewsPanel() {
 
         if (isActive) {
           setItems(payload.items);
+          setHasPartialFailure(payload.partialFailure);
           setStatus("ready");
         }
       } catch {
         if (isActive) {
+          setHasPartialFailure(false);
           setStatus("error");
         }
       }
@@ -59,7 +62,10 @@ export function NewsPanel() {
           <h1 className="panel__title" id="news-panel-title">
             マーケットニュース
           </h1>
-          <p className="panel__subtitle">地政学・金融政策・株式市場の注目材料</p>
+          <p className="panel__subtitle">
+            地政学・金融政策・株式市場の注目材料
+            {hasPartialFailure ? " ・ 一部RSS取得失敗" : null}
+          </p>
         </div>
       </div>
       <div className="news-list">

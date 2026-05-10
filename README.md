@@ -83,6 +83,7 @@ Alpha VantageのQQQ ETFは日次参照データです。リアルタイム価格
 - サーバー側API Route: `/api/news`
 - JPX、金融庁、財務省RSSの集約
 - RSS XMLの取得、正規化、重複除去
+- RSS source別statusと一部失敗時の部分成功レスポンス
 - `regionTags` のルールベース付与
 - `marketImpact: high / medium / low` のルールベース判定
 - NewsPanelのLoading/Error表示
@@ -96,6 +97,7 @@ summaryはRSS itemの `description` または `summary` のみを使用します
 
 地図上のニュース点は、ニュースに関連する地域の代表点です。正確な発生地点、取引所所在地、当局所在地、または記事本文から抽出した位置情報ではありません。同一 `regionTag` のニュースは地図イベントとして集約し、件数と最大影響度を表示します。
 地図イベントでは、1記事につき地図用のprimary region tagを1つ選びます。日本以外にアジア、ADB、ASEAN、G7、G20、IMFが含まれる場合はそれらを優先し、日本のみの場合は日本へ集約します。採用、職員募集、調達、入札公告、メンテナンス、公告は地図上のseverityをlowへ補正します。流動性供給、追加発行した国債の銘柄、入札において、などの定型国債・入札系はseverityをmedium上限に補正します。日本イベントはhigh件数も見て、単発のhigh判定だけで過剰に強調されないようにしています。
+`/api/news` は既存の `items / fetchedAt / sources` を維持したまま、`sourceStatuses` と `partialFailure` を追加しています。一部RSSが失敗しても取得できたitemsは返し、全RSS取得失敗時のみエラーにします。NewsPanelでは一部失敗時に短い注記だけを表示します。
 
 ## Phase4で整理した内容
 
@@ -147,8 +149,11 @@ src/server/providers/news/rss-sources.ts
 src/server/providers/news/rss-provider.ts
   RSS XML取得、解析、ニュース項目への正規化
 
+src/server/services/news-classification-rules.ts
+  regionTagsとmarketImpactのルール
+
 src/server/services/news-service.ts
-  複数RSSの集約、重複除去、並び替え
+  複数RSSの集約、重複除去、並び替え、source別status生成
 
 src/app/api/news/route.ts
   service呼び出しとHTTPレスポンス変換
@@ -158,6 +163,9 @@ src/server/providers/map/region-coordinates.ts
 
 src/server/services/news-map-service.ts
   NewsItemからニュース由来の地図イベントへの集約
+
+src/server/services/news-map-rules.ts
+  地図用severity補正、primary region tag、代表ニュース選定ルール
 
 src/app/api/map-events/news/route.ts
   ニュース由来地図イベントのHTTPレスポンス変換
