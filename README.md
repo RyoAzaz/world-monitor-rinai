@@ -1,6 +1,6 @@
 # World Monitor 投資・地政学ダッシュボード
 
-World Monitor をベースにした、日本語の投資家向けダッシュボードです。Phase1では「世界地図 + マーケット + ニュース」を1画面に統合し、実API連携の前段としてダミーデータで動作する最小構成を実装しています。
+World Monitor をベースにした、日本語の投資家向けダッシュボードです。「世界地図 + マーケット + ニュース」を1画面に統合し、市場データと背景ニュースを同じ画面で確認できる構成を段階的に実装しています。
 
 ## 起動方法
 
@@ -77,6 +77,24 @@ Alpha VantageのQQQ ETFは日次参照データです。リアルタイム価格
 
 当初はNASDAQ-100指数そのもの（NDX）の取得を検討しましたが、現在のAlpha Vantageキーでは `INDEX_DATA / NDX` が利用できませんでした。Phase2 MVPでは、Nasdaq-100 Indexを追跡するETFであるQQQを代替指標として採用しています。UIでは `NASDAQ100 Proxy` と表示し、NASDAQ-100指数そのものではないことを明示します。
 
+## Phase3で追加した内容
+
+- 公式RSSによるニュース取得
+- サーバー側API Route: `/api/news`
+- JPX、金融庁、財務省RSSの集約
+- RSS XMLの取得、正規化、重複除去
+- `regionTags` のルールベース付与
+- `marketImpact: high / medium / low` のルールベース判定
+- NewsPanelのLoading/Error表示
+
+ニュースは公式RSSに含まれる `title / source / url / publishedAt / summary` 程度の短い情報だけを表示します。記事本文のスクレイピング、長文本文の保存・再配布、AI要約、DB保存は行っていません。
+
+初期RSSソース:
+
+- JPX: `https://www.jpx.co.jp/rss/markets_news.xml`
+- 金融庁: `https://www.fsa.go.jp/fsaNewsListAll_rss2.xml`
+- 財務省: `https://www.mof.go.jp/news.rss`
+
 ## サーバー側マーケットデータ構造
 
 ```txt
@@ -92,11 +110,28 @@ src/app/api/market/nasdaq100/route.ts
 
 将来、日経平均やNASDAQなどを追加する場合は、API Routeへ直接取得処理を書かず、`market-service.ts` に取得関数を追加してからRouteで呼び出します。
 
+## サーバー側ニュースデータ構造
+
+```txt
+src/server/providers/news/rss-sources.ts
+  公式RSSソース定義
+
+src/server/providers/news/rss-provider.ts
+  RSS XML取得、解析、ニュース項目への正規化
+
+src/server/services/news-service.ts
+  複数RSSの集約、重複除去、並び替え
+
+src/app/api/news/route.ts
+  service呼び出しとHTTPレスポンス変換
+```
+
 ## Phase2以降の予定
 
 - 実API連携の設計と段階的導入
 - マーケットデータ取得方式の確定
 - ニュース取得方式の確定
+- 地図イベントとニュースの接続
 - 地図データとイベントデータの精度向上
 - Watchlist、アラート、リアルタイム更新の検討
 - RinAI 統合の設計

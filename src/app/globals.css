@@ -284,6 +284,15 @@ select {
   line-height: 1.55;
 }
 
+.news-item__headline a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.news-item__headline a:hover {
+  color: var(--accent);
+}
+
 .news-item__summary {
   margin: 0;
   color: var(--muted);
