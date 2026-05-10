@@ -51,6 +51,28 @@ npm.cmd run build
 - ダミーデータによる画面表示
 - TypeScript strict mode 対応
 
+## Phase2で追加した内容
+
+- USDJPYのみ実データ接続
+- サーバー側API Route: `/api/market/usdjpy`
+- Frankfurter APIによるUSDJPY取得
+- `src/server/services/market-service.ts` へのマーケット取得処理分離
+- TopBarのUSDJPY欄のみLoading/Error/更新時刻表示
+
+Frankfurter APIのUSDJPYは日次参照レートです。リアルタイム為替レートではありません。
+
+## サーバー側マーケットデータ構造
+
+```txt
+src/server/services/market-service.ts
+  USDJPY取得処理、Frankfurter APIレスポンス検証、表示用データ整形
+
+src/app/api/market/usdjpy/route.ts
+  service呼び出しとHTTPレスポンス変換
+```
+
+将来、日経平均やNASDAQなどを追加する場合は、API Routeへ直接取得処理を書かず、`market-service.ts` に取得関数を追加してからRouteで呼び出します。
+
 ## Phase2以降の予定
 
 - 実API連携の設計と段階的導入

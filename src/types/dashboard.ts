@@ -9,15 +9,21 @@ export type MarketTicker = {
   updatedAt: string;
 };
 
+export type MarketDataSource = {
+  name: string;
+  url: string;
+  dataDate: string;
+  fetchedAt: string;
+  note: string;
+};
+
 export type UsdJpyRateResponse = {
   ticker: MarketTicker;
-  source: {
-    name: string;
-    url: string;
-    dataDate: string;
-    fetchedAt: string;
-    note: string;
-  };
+  source: MarketDataSource;
+};
+
+export type MarketDataErrorResponse = {
+  error: string;
 };
 
 export type NewsImpact = "高" | "中" | "低";
