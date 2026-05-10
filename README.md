@@ -34,6 +34,16 @@ npm.cmd run typecheck
 npm.cmd run build
 ```
 
+## 環境変数
+
+NASDAQ-100（NDX）の取得にはAlpha Vantage APIキーが必要です。`.env.local` に次の値を設定します。
+
+```txt
+ALPHA_VANTAGE_API_KEY=your_api_key_here
+```
+
+`.env.local` はGit管理対象に含めません。APIキーはサーバー側の `process.env.ALPHA_VANTAGE_API_KEY` からのみ読み込み、画面やAPIレスポンスには出しません。
+
 ## Phase1で実装済みの機能
 
 - Next.js + TypeScript の基本構成
@@ -56,18 +66,26 @@ npm.cmd run build
 - USDJPYのみ実データ接続
 - サーバー側API Route: `/api/market/usdjpy`
 - Frankfurter APIによるUSDJPY取得
+- NASDAQ-100（NDX）の実データ接続
+- サーバー側API Route: `/api/market/nasdaq100`
+- Alpha Vantage APIによるNASDAQ-100日次データ取得
 - `src/server/services/market-service.ts` へのマーケット取得処理分離
-- TopBarのUSDJPY欄のみLoading/Error/更新時刻表示
+- TopBarのUSDJPY/NASDAQ欄のみLoading/Error/更新時刻表示
 
 Frankfurter APIのUSDJPYは日次参照レートです。リアルタイム為替レートではありません。
+Alpha VantageのNASDAQ-100は日次参照データです。リアルタイム指数データではありません。無料枠は25 requests/dayを前提に、サーバー側で3600秒以上の再検証間隔を設定しています。
+利用しているAlpha Vantageキーの権限やプランでNDXの取得が許可されていない場合、NASDAQ欄は取得失敗として表示されます。
 
 ## サーバー側マーケットデータ構造
 
 ```txt
 src/server/services/market-service.ts
-  USDJPY取得処理、Frankfurter APIレスポンス検証、表示用データ整形
+  USDJPY/NASDAQ-100取得処理、外部APIレスポンス検証、表示用データ整形
 
 src/app/api/market/usdjpy/route.ts
+  service呼び出しとHTTPレスポンス変換
+
+src/app/api/market/nasdaq100/route.ts
   service呼び出しとHTTPレスポンス変換
 ```
 

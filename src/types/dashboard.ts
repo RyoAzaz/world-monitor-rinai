@@ -22,6 +22,11 @@ export type UsdJpyRateResponse = {
   source: MarketDataSource;
 };
 
+export type Nasdaq100QuoteResponse = {
+  ticker: MarketTicker;
+  source: MarketDataSource;
+};
+
 export type MarketDataErrorResponse = {
   error: string;
 };
