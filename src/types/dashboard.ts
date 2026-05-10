@@ -36,6 +36,11 @@ export type Us10yYieldResponse = {
   source: MarketDataSource;
 };
 
+export type VixIndexResponse = {
+  ticker: MarketTicker;
+  source: MarketDataSource;
+};
+
 export type FallbackImpactLevel = "高" | "中" | "低";
 
 export type FallbackNewsItem = {

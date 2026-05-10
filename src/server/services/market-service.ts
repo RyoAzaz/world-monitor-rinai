@@ -3,6 +3,7 @@ import type {
   Nasdaq100QuoteResponse,
   Us10yYieldResponse,
   UsdJpyRateResponse,
+  VixIndexResponse,
 } from "@/types/dashboard";
 
 type FrankfurterLatestResponse = {
@@ -48,6 +49,8 @@ const ALPHA_VANTAGE_QQQ_PROXY_SOURCE_URL =
   "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=QQQ&outputsize=compact";
 const FRED_DGS10_SOURCE_URL =
   "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&file_type=json&sort_order=desc&limit=5";
+const FRED_VIXCLS_SOURCE_URL =
+  "https://api.stlouisfed.org/fred/series/observations?series_id=VIXCLS&file_type=json&sort_order=desc&limit=5";
 
 const USDJPY_FETCH_FAILED_MESSAGE = "USDJPYレートの取得に失敗しました。";
 const USDJPY_INVALID_RESPONSE_MESSAGE =
@@ -70,6 +73,11 @@ const US10Y_INVALID_RESPONSE_MESSAGE =
   "米10年金利のレスポンス形式が不正です。";
 const US10Y_UNEXPECTED_ERROR_MESSAGE =
   "米10年金利の取得中にエラーが発生しました。";
+const VIX_API_KEY_MISSING_MESSAGE = "FRED_API_KEYが未設定です。";
+const VIX_FETCH_FAILED_MESSAGE = "VIXの取得に失敗しました。";
+const VIX_INVALID_RESPONSE_MESSAGE = "VIXのレスポンス形式が不正です。";
+const VIX_UNEXPECTED_ERROR_MESSAGE =
+  "VIXの取得中にエラーが発生しました。";
 
 export class MarketServiceError extends Error {
   status: number;
@@ -126,6 +134,13 @@ function formatYieldChange(latest: number, previous: number) {
   const sign = changeBasisPoints > 0 ? "+" : "";
 
   return `${sign}${changeBasisPoints.toFixed(0)}bp`;
+}
+
+function formatPointChange(latest: number, previous: number) {
+  const changePoints = latest - previous;
+  const sign = changePoints > 0 ? "+" : "";
+
+  return `${sign}${changePoints.toFixed(2)}pt`;
 }
 
 function getDirection(latest: number, previous: number): MarketDirection {
@@ -235,9 +250,9 @@ function buildAlphaVantageQqqProxyUrl(apiKey: string) {
   return `https://www.alphavantage.co/query?${params.toString()}`;
 }
 
-function buildFredDgs10Url(apiKey: string) {
+function buildFredObservationsUrl(seriesId: string, apiKey: string) {
   const params = new URLSearchParams({
-    series_id: "DGS10",
+    series_id: seriesId,
     api_key: apiKey,
     file_type: "json",
     sort_order: "desc",
@@ -293,28 +308,56 @@ async function fetchAlphaVantageQqqProxy() {
   return payload;
 }
 
-async function fetchFredDgs10() {
+async function fetchFredObservations({
+  fetchFailedMessage,
+  invalidResponseMessage,
+  missingApiKeyMessage,
+  seriesId,
+}: {
+  fetchFailedMessage: string;
+  invalidResponseMessage: string;
+  missingApiKeyMessage: string;
+  seriesId: string;
+}) {
   const apiKey = process.env.FRED_API_KEY?.trim();
 
   if (!apiKey) {
-    throw new MarketServiceError(US10Y_API_KEY_MISSING_MESSAGE, 503);
+    throw new MarketServiceError(missingApiKeyMessage, 503);
   }
 
-  const response = await fetch(buildFredDgs10Url(apiKey), {
+  const response = await fetch(buildFredObservationsUrl(seriesId, apiKey), {
     next: { revalidate: FRED_REVALIDATE_SECONDS },
   });
 
   if (!response.ok) {
-    throw new MarketServiceError(US10Y_FETCH_FAILED_MESSAGE);
+    throw new MarketServiceError(fetchFailedMessage);
   }
 
   const payload: unknown = await response.json();
 
   if (!isFredSeriesObservationsResponse(payload)) {
-    throw new MarketServiceError(US10Y_INVALID_RESPONSE_MESSAGE);
+    throw new MarketServiceError(invalidResponseMessage);
   }
 
   return payload;
+}
+
+function fetchFredDgs10() {
+  return fetchFredObservations({
+    fetchFailedMessage: US10Y_FETCH_FAILED_MESSAGE,
+    invalidResponseMessage: US10Y_INVALID_RESPONSE_MESSAGE,
+    missingApiKeyMessage: US10Y_API_KEY_MISSING_MESSAGE,
+    seriesId: "DGS10",
+  });
+}
+
+function fetchFredVixCls() {
+  return fetchFredObservations({
+    fetchFailedMessage: VIX_FETCH_FAILED_MESSAGE,
+    invalidResponseMessage: VIX_INVALID_RESPONSE_MESSAGE,
+    missingApiKeyMessage: VIX_API_KEY_MISSING_MESSAGE,
+    seriesId: "VIXCLS",
+  });
 }
 
 function getLatestDailyBars(payload: AlphaVantageDailyTimeSeriesResponse) {
@@ -342,7 +385,10 @@ function getLatestDailyBars(payload: AlphaVantageDailyTimeSeriesResponse) {
   };
 }
 
-function getLatestFredObservations(payload: FredSeriesObservationsResponse) {
+function getLatestFredObservations(
+  payload: FredSeriesObservationsResponse,
+  invalidResponseMessage: string,
+) {
   const validObservations =
     payload.observations
       ?.map((observation) => ({
@@ -357,7 +403,7 @@ function getLatestFredObservations(payload: FredSeriesObservationsResponse) {
   const previous = validObservations[1];
 
   if (!latest) {
-    throw new MarketServiceError(US10Y_INVALID_RESPONSE_MESSAGE);
+    throw new MarketServiceError(invalidResponseMessage);
   }
 
   return {
@@ -440,7 +486,7 @@ export async function getUs10yYield(): Promise<Us10yYieldResponse> {
   try {
     const payload = await fetchFredDgs10();
     const { latestDate, latestValue, previousValue } =
-      getLatestFredObservations(payload);
+      getLatestFredObservations(payload, US10Y_INVALID_RESPONSE_MESSAGE);
     const fetchedAt = new Date();
 
     return {
@@ -472,5 +518,44 @@ export async function getUs10yYield(): Promise<Us10yYieldResponse> {
     }
 
     throw new MarketServiceError(US10Y_UNEXPECTED_ERROR_MESSAGE);
+  }
+}
+
+export async function getVixIndex(): Promise<VixIndexResponse> {
+  try {
+    const payload = await fetchFredVixCls();
+    const { latestDate, latestValue, previousValue } =
+      getLatestFredObservations(payload, VIX_INVALID_RESPONSE_MESSAGE);
+    const fetchedAt = new Date();
+
+    return {
+      ticker: {
+        id: "vix",
+        label: "VIX",
+        value: formatIndexValue(latestValue),
+        change:
+          previousValue === null
+            ? "日次終値"
+            : formatPointChange(latestValue, previousValue),
+        direction:
+          previousValue === null
+            ? "flat"
+            : getDirection(latestValue, previousValue),
+        updatedAt: formatJstTime(fetchedAt),
+      },
+      source: {
+        name: "FRED",
+        url: FRED_VIXCLS_SOURCE_URL,
+        dataDate: latestDate,
+        fetchedAt: fetchedAt.toISOString(),
+        note: "FREDのVIXCLS日次終値データです。リアルタイムではありません。",
+      },
+    };
+  } catch (error) {
+    if (isMarketServiceError(error)) {
+      throw error;
+    }
+
+    throw new MarketServiceError(VIX_UNEXPECTED_ERROR_MESSAGE);
   }
 }

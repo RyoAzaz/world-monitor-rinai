@@ -8,6 +8,7 @@ import type {
   Nasdaq100QuoteResponse,
   Us10yYieldResponse,
   UsdJpyRateResponse,
+  VixIndexResponse,
 } from "@/types/dashboard";
 
 const usdjpyLoadingTicker: MarketTicker = {
@@ -82,6 +83,30 @@ const us10yErrorTicker: MarketTicker = {
   priority: 30,
 };
 
+const vixLoadingTicker: MarketTicker = {
+  id: "vix",
+  label: "VIX",
+  value: "取得中",
+  change: "日次終値",
+  direction: "flat",
+  updatedAt: "--:--",
+  dataKind: "real",
+  note: "FRED日次終値・リアルタイムではありません",
+  priority: 25,
+};
+
+const vixErrorTicker: MarketTicker = {
+  id: "vix",
+  label: "VIX",
+  value: "取得失敗",
+  change: "再読込",
+  direction: "flat",
+  updatedAt: "--:--",
+  dataKind: "real",
+  note: "FRED日次終値・リアルタイムではありません",
+  priority: 25,
+};
+
 export function TopBar() {
   const [usdJpyTicker, setUsdJpyTicker] =
     useState<MarketTicker>(usdjpyLoadingTicker);
@@ -95,6 +120,10 @@ export function TopBar() {
   const [us10yTicker, setUs10yTicker] =
     useState<MarketTicker>(us10yLoadingTicker);
   const [us10yStatus, setUs10yStatus] =
+    useState<ClientFetchStatus>("loading");
+  const [vixTicker, setVixTicker] =
+    useState<MarketTicker>(vixLoadingTicker);
+  const [vixStatus, setVixStatus] =
     useState<ClientFetchStatus>("loading");
 
   useEffect(() => {
@@ -181,8 +210,36 @@ export function TopBar() {
       }
     }
 
+    async function loadVix() {
+      try {
+        const response = await fetch("/api/market/vix");
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch VIX.");
+        }
+
+        const data = (await response.json()) as VixIndexResponse;
+
+        if (!ignore) {
+          setVixTicker({
+            ...data.ticker,
+            dataKind: "real",
+            note: vixLoadingTicker.note,
+            priority: vixLoadingTicker.priority,
+          });
+          setVixStatus("ready");
+        }
+      } catch {
+        if (!ignore) {
+          setVixTicker(vixErrorTicker);
+          setVixStatus("error");
+        }
+      }
+    }
+
     void loadUsdJpy();
     void loadNasdaq100();
+    void loadVix();
     void loadUs10y();
 
     return () => {
@@ -195,6 +252,7 @@ export function TopBar() {
       [
         usdJpyTicker,
         nasdaq100Ticker,
+        vixTicker,
         us10yTicker,
         ...fallbackMarketTickers,
       ].sort((tickerA, tickerB) => {
@@ -203,7 +261,7 @@ export function TopBar() {
 
         return priorityA - priorityB;
       }),
-    [nasdaq100Ticker, us10yTicker, usdJpyTicker],
+    [nasdaq100Ticker, us10yTicker, usdJpyTicker, vixTicker],
   );
 
   return (
@@ -211,14 +269,17 @@ export function TopBar() {
       {tickers.map((ticker) => {
         const isUsdJpy = ticker.id === "usdjpy";
         const isNasdaq100 = ticker.id === "nasdaq";
+        const isVix = ticker.id === "vix";
         const isUs10y = ticker.id === "us10y";
         const isLoading =
           (isUsdJpy && usdJpyStatus === "loading") ||
           (isNasdaq100 && nasdaq100Status === "loading") ||
+          (isVix && vixStatus === "loading") ||
           (isUs10y && us10yStatus === "loading");
         const isError =
           (isUsdJpy && usdJpyStatus === "error") ||
           (isNasdaq100 && nasdaq100Status === "error") ||
+          (isVix && vixStatus === "error") ||
           (isUs10y && us10yStatus === "error");
         const updatedText =
           isLoading

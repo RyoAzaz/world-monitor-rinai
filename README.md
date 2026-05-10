@@ -36,7 +36,7 @@ npm.cmd run build
 
 ## 環境変数
 
-NASDAQ100 Proxy（QQQ ETF）の取得にはAlpha Vantage APIキーが必要です。`.env.local` に次の値を設定します。
+NASDAQ100 Proxy（QQQ ETF）の取得にはAlpha Vantage APIキー、米10年金利とVIXの取得にはFRED APIキーが必要です。`.env.local` に次の値を設定します。
 
 ```txt
 ALPHA_VANTAGE_API_KEY=your_api_key_here
@@ -82,6 +82,7 @@ FRED_API_KEY=your_fred_api_key_here
 Frankfurter APIのUSDJPYは日次参照レートです。リアルタイム為替レートではありません。
 Alpha VantageのQQQ ETFは日次参照データです。リアルタイム価格ではありません。無料枠は25 requests/dayを前提に、サーバー側で3600秒以上の再検証間隔を設定しています。
 FRED APIのDGS10は米10年国債利回りの日次参照データです。リアルタイム金利ではありません。
+FRED APIのVIXCLSはVIXの日次終値データです。リアルタイムのVIX指数ではありません。
 
 当初はNASDAQ-100指数そのもの（NDX）の取得を検討しましたが、現在のAlpha Vantageキーでは `INDEX_DATA / NDX` が利用できませんでした。Phase2 MVPでは、Nasdaq-100 Indexを追跡するETFであるQQQを代替指標として採用しています。UIでは `NASDAQ100 Proxy` と表示し、NASDAQ-100指数そのものではないことを明示します。
 
@@ -107,13 +108,16 @@ summaryはRSS itemの `description` または `summary` のみを使用します
 地図イベントでは、1記事につき地図用のprimary region tagを1つ選びます。日本以外にアジア、ADB、ASEAN、G7、G20、IMFが含まれる場合はそれらを優先し、日本のみの場合は日本へ集約します。採用、職員募集、調達、入札公告、メンテナンス、公告は地図上のseverityをlowへ補正します。流動性供給、追加発行した国債の銘柄、入札において、などの定型国債・入札系はseverityをmedium上限に補正します。日本イベントはhigh件数も見て、単発のhigh判定だけで過剰に強調されないようにしています。
 `/api/news` は既存の `items / fetchedAt / sources` を維持したまま、`sourceStatuses` と `partialFailure` を追加しています。一部RSSが失敗しても取得できたitemsは返し、全RSS取得失敗時のみエラーにします。NewsPanelでは一部失敗時に短い注記だけを表示します。
 
-## Phase4で整理した内容
+## Phase4で整理/追加した内容
 
 - 実データ用ニュース型とfallback用mock型の分離
 - APIエラーレスポンス型の `ApiErrorResponse` への最小共通化
 - client fetch状態の `ClientFetchStatus` への統一
 - mockデータをfallbackまたは未接続データの表示用として明示
 - READMEの実装済みPhaseと今後予定の整理
+- VIX（FRED VIXCLS）の実データ接続
+- サーバー側API Route: `/api/market/vix`
+- TopBarのVIXカード追加
 
 初期RSSソース:
 
@@ -125,7 +129,7 @@ summaryはRSS itemの `description` または `summary` のみを使用します
 
 ```txt
 src/server/services/market-service.ts
-  USDJPY/NASDAQ100 Proxy取得処理、外部APIレスポンス検証、表示用データ整形
+  USDJPY/NASDAQ100 Proxy/DGS10/VIXCLS取得処理、外部APIレスポンス検証、表示用データ整形
 
 src/app/api/market/usdjpy/route.ts
   service呼び出しとHTTPレスポンス変換
@@ -134,6 +138,9 @@ src/app/api/market/nasdaq100/route.ts
   service呼び出しとHTTPレスポンス変換
 
 src/app/api/market/us10y/route.ts
+  service呼び出しとHTTPレスポンス変換
+
+src/app/api/market/vix/route.ts
   service呼び出しとHTTPレスポンス変換
 ```
 
