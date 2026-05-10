@@ -7,8 +7,8 @@ import maplibregl, {
   type Marker,
   type StyleSpecification,
 } from "maplibre-gl";
-import { mockMapEvents } from "@/data/mockMapEvents";
-import type { MapEvent, NewsImpact } from "@/types/dashboard";
+import { fallbackMapEvents } from "@/data/mockMapEvents";
+import type { FallbackImpactLevel, FallbackMapEvent } from "@/types/dashboard";
 import type {
   MapEventSeverity,
   NewsMapEvent,
@@ -167,7 +167,7 @@ const severityLabel: Record<MapEventSeverity, string> = {
   low: "低",
 };
 
-const legacySeverityMap: Record<NewsImpact, MapEventSeverity> = {
+const fallbackSeverityMap: Record<FallbackImpactLevel, MapEventSeverity> = {
   高: "high",
   中: "medium",
   低: "low",
@@ -249,14 +249,14 @@ function createPopup(event: NewsMapEvent) {
   }).setDOMContent(popupElement);
 }
 
-function toFallbackNewsMapEvent(event: MapEvent): NewsMapEvent {
+function toFallbackNewsMapEvent(event: FallbackMapEvent): NewsMapEvent {
   return {
     id: `mock:${event.id}`,
     title: event.title,
     regionTag: event.country,
     regionLabel: event.country,
     coordinates: event.coordinates,
-    severity: legacySeverityMap[event.severity],
+    severity: fallbackSeverityMap[event.severity],
     itemCount: 1,
     source: "mock",
     latestPublishedAt: new Date().toISOString(),
@@ -338,7 +338,7 @@ export function WorldMapPanel() {
             markers,
             events.length > 0
               ? events
-              : mockMapEvents.map(toFallbackNewsMapEvent),
+              : fallbackMapEvents.map(toFallbackNewsMapEvent),
           );
         })
         .catch(() => {
@@ -349,7 +349,7 @@ export function WorldMapPanel() {
           addEventMarkers(
             map,
             markers,
-            mockMapEvents.map(toFallbackNewsMapEvent),
+            fallbackMapEvents.map(toFallbackNewsMapEvent),
           );
         });
     });

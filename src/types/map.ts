@@ -28,7 +28,3 @@ export type NewsMapEventsResponse = {
   unmappedTags: string[];
   note: string;
 };
-
-export type NewsMapEventsErrorResponse = {
-  error: string;
-};

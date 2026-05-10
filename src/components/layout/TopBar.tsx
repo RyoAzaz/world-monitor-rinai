@@ -1,15 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { mockMarketTickers } from "@/data/mockMarket";
+import { fallbackMarketTickers } from "@/data/mockMarket";
+import type { ClientFetchStatus } from "@/types/api";
 import type {
   MarketTicker,
   Nasdaq100QuoteResponse,
   UsdJpyRateResponse,
 } from "@/types/dashboard";
-
-type UsdJpyStatus = "loading" | "ready" | "error";
-type Nasdaq100Status = "loading" | "ready" | "error";
 
 const usdjpyLoadingTicker: MarketTicker = {
   id: "usdjpy",
@@ -54,12 +52,13 @@ const nasdaq100ReferenceNote =
 export function TopBar() {
   const [usdJpyTicker, setUsdJpyTicker] =
     useState<MarketTicker>(usdjpyLoadingTicker);
-  const [usdJpyStatus, setUsdJpyStatus] = useState<UsdJpyStatus>("loading");
+  const [usdJpyStatus, setUsdJpyStatus] =
+    useState<ClientFetchStatus>("loading");
   const [nasdaq100Ticker, setNasdaq100Ticker] = useState<MarketTicker>(
     nasdaq100LoadingTicker,
   );
   const [nasdaq100Status, setNasdaq100Status] =
-    useState<Nasdaq100Status>("loading");
+    useState<ClientFetchStatus>("loading");
 
   useEffect(() => {
     let ignore = false;
@@ -118,7 +117,7 @@ export function TopBar() {
 
   const tickers = useMemo(
     () =>
-      mockMarketTickers.map((ticker) => {
+      fallbackMarketTickers.map((ticker) => {
         if (ticker.id === "usdjpy") {
           return usdJpyTicker;
         }

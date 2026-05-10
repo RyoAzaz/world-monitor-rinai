@@ -3,7 +3,7 @@ import {
   getUsdJpyRate,
   isMarketServiceError,
 } from "@/server/services/market-service";
-import type { MarketDataErrorResponse } from "@/types/dashboard";
+import type { ApiErrorResponse } from "@/types/api";
 
 export async function GET() {
   try {
@@ -11,7 +11,7 @@ export async function GET() {
   } catch (error) {
     console.error("USDJPY rate fetch failed.", error);
 
-    const body: MarketDataErrorResponse = {
+    const body: ApiErrorResponse = {
       error: isMarketServiceError(error)
         ? error.message
         : "USDJPYレートの取得中にエラーが発生しました。",

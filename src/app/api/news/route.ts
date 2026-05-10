@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { getLatestNews, isNewsServiceError } from "@/server/services/news-service";
-import type { NewsErrorResponse, NewsResponse } from "@/types/news";
+import type { ApiErrorResponse } from "@/types/api";
+import type { NewsResponse } from "@/types/news";
 
 export const revalidate = 900;
 
@@ -16,6 +17,6 @@ export async function GET() {
       ? error.message
       : "ニュースの取得中にエラーが発生しました。";
 
-    return NextResponse.json<NewsErrorResponse>({ error: message }, { status });
+    return NextResponse.json<ApiErrorResponse>({ error: message }, { status });
   }
 }

@@ -16,7 +16,3 @@ export type NewsResponse = {
   fetchedAt: string;
   sources: string[];
 };
-
-export type NewsErrorResponse = {
-  error: string;
-};

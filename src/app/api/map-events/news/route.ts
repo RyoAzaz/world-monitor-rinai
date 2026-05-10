@@ -2,10 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getNewsMapEvents } from "@/server/services/news-map-service";
 import { isNewsServiceError } from "@/server/services/news-service";
-import type {
-  NewsMapEventsErrorResponse,
-  NewsMapEventsResponse,
-} from "@/types/map";
+import type { ApiErrorResponse } from "@/types/api";
+import type { NewsMapEventsResponse } from "@/types/map";
 
 export const revalidate = 900;
 
@@ -20,7 +18,7 @@ export async function GET() {
       ? error.message
       : "ニュース由来の地図イベント取得中にエラーが発生しました。";
 
-    return NextResponse.json<NewsMapEventsErrorResponse>(
+    return NextResponse.json<ApiErrorResponse>(
       { error: message },
       { status },
     );

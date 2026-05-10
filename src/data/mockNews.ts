@@ -1,6 +1,6 @@
-import type { NewsItem } from "@/types/dashboard";
+import type { FallbackNewsItem } from "@/types/dashboard";
 
-export const mockNewsItems: NewsItem[] = [
+export const fallbackNewsItems: FallbackNewsItem[] = [
   {
     id: "jp-rates",
     headline: "日銀の政策修正観測で円相場が小幅に反発",

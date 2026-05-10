@@ -97,6 +97,14 @@ summaryはRSS itemの `description` または `summary` のみを使用します
 地図上のニュース点は、ニュースに関連する地域の代表点です。正確な発生地点、取引所所在地、当局所在地、または記事本文から抽出した位置情報ではありません。同一 `regionTag` のニュースは地図イベントとして集約し、件数と最大影響度を表示します。
 地図イベントでは、1記事につき地図用のprimary region tagを1つ選びます。日本以外にアジア、ADB、ASEAN、G7、G20、IMFが含まれる場合はそれらを優先し、日本のみの場合は日本へ集約します。採用、職員募集、調達、入札公告、メンテナンス、公告は地図上のseverityをlowへ補正します。流動性供給、追加発行した国債の銘柄、入札において、などの定型国債・入札系はseverityをmedium上限に補正します。日本イベントはhigh件数も見て、単発のhigh判定だけで過剰に強調されないようにしています。
 
+## Phase4で整理した内容
+
+- 実データ用ニュース型とfallback用mock型の分離
+- APIエラーレスポンス型の `ApiErrorResponse` への最小共通化
+- client fetch状態の `ClientFetchStatus` への統一
+- mockデータをfallbackまたは未接続データの表示用として明示
+- READMEの実装済みPhaseと今後予定の整理
+
 初期RSSソース:
 
 - JPX: `https://www.jpx.co.jp/rss/markets_news.xml`
@@ -121,6 +129,18 @@ src/app/api/market/nasdaq100/route.ts
 ## サーバー側ニュースデータ構造
 
 ```txt
+src/types/api.ts
+  APIエラーレスポンス型とclient fetch状態の共通型
+
+src/types/news.ts
+  /api/news の実データ型
+
+src/types/map.ts
+  /api/map-events/news の地図イベント型
+
+src/types/dashboard.ts
+  マーケット表示型とfallback用mock型
+
 src/server/providers/news/rss-sources.ts
   公式RSSソース定義
 
@@ -143,12 +163,11 @@ src/app/api/map-events/news/route.ts
   ニュース由来地図イベントのHTTPレスポンス変換
 ```
 
-## Phase2以降の予定
+## 今後の予定
 
-- 実API連携の設計と段階的導入
-- マーケットデータ取得方式の確定
-- ニュース取得方式の確定
-- 地図イベントとニュースの接続
+- 日経平均、SOX、VIX、TOPIXなどのマーケットデータ追加設計
+- RSS取得のtimeout、source別status、部分失敗表示
+- ニュース分類と地図イベントseverityルールの精度改善
 - 地図データとイベントデータの精度向上
 - Watchlist、アラート、リアルタイム更新の検討
 - RinAI 統合の設計

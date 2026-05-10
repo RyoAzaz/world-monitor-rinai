@@ -27,28 +27,24 @@ export type Nasdaq100QuoteResponse = {
   source: MarketDataSource;
 };
 
-export type MarketDataErrorResponse = {
-  error: string;
-};
+export type FallbackImpactLevel = "高" | "中" | "低";
 
-export type NewsImpact = "高" | "中" | "低";
-
-export type NewsItem = {
+export type FallbackNewsItem = {
   id: string;
   headline: string;
   summary: string;
   source: string;
   region: string;
   category: string;
-  impact: NewsImpact;
+  impact: FallbackImpactLevel;
   publishedAt: string;
 };
 
-export type MapEvent = {
+export type FallbackMapEvent = {
   id: string;
   title: string;
   country: string;
   coordinates: [number, number];
-  severity: NewsImpact;
+  severity: FallbackImpactLevel;
   category: string;
 };

@@ -1,6 +1,6 @@
-import type { MapEvent } from "@/types/dashboard";
+import type { FallbackMapEvent } from "@/types/dashboard";
 
-export const mockMapEvents: MapEvent[] = [
+export const fallbackMapEvents: FallbackMapEvent[] = [
   {
     id: "tokyo-policy",
     title: "金融政策イベント",

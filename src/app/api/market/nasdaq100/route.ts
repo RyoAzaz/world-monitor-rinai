@@ -3,13 +3,13 @@ import {
   getNasdaq100Quote,
   isMarketServiceError,
 } from "@/server/services/market-service";
-import type { MarketDataErrorResponse } from "@/types/dashboard";
+import type { ApiErrorResponse } from "@/types/api";
 
 export async function GET() {
   try {
     return NextResponse.json(await getNasdaq100Quote());
   } catch (error) {
-    const body: MarketDataErrorResponse = {
+    const body: ApiErrorResponse = {
       error: isMarketServiceError(error)
         ? error.message
         : "NASDAQ-100データの取得中にエラーが発生しました。",

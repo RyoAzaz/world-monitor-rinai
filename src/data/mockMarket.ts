@@ -1,6 +1,6 @@
 import type { MarketTicker } from "@/types/dashboard";
 
-export const mockMarketTickers: MarketTicker[] = [
+export const fallbackMarketTickers: MarketTicker[] = [
   {
     id: "nikkei",
     label: "日経平均",

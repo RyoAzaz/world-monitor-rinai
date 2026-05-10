@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import type { ClientFetchStatus } from "@/types/api";
 import type { MarketImpact, NewsItem, NewsResponse } from "@/types/news";
 
 const impactClassName: Record<MarketImpact, string> = {
@@ -18,8 +19,7 @@ const impactLabel: Record<MarketImpact, string> = {
 
 export function NewsPanel() {
   const [items, setItems] = useState<NewsItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<ClientFetchStatus>("loading");
 
   useEffect(() => {
     let isActive = true;
@@ -36,15 +36,11 @@ export function NewsPanel() {
 
         if (isActive) {
           setItems(payload.items);
-          setErrorMessage(null);
+          setStatus("ready");
         }
       } catch {
         if (isActive) {
-          setErrorMessage("ニュースを取得できませんでした。");
-        }
-      } finally {
-        if (isActive) {
-          setIsLoading(false);
+          setStatus("error");
         }
       }
     }
@@ -67,10 +63,10 @@ export function NewsPanel() {
         </div>
       </div>
       <div className="news-list">
-        {isLoading ? (
+        {status === "loading" ? (
           <NewsStatus title="ニュース取得中" message="公式RSSから最新情報を読み込んでいます。" />
-        ) : errorMessage ? (
-          <NewsStatus title="取得エラー" message={errorMessage} />
+        ) : status === "error" ? (
+          <NewsStatus title="取得エラー" message="ニュースを取得できませんでした。" />
         ) : items.length === 0 ? (
           <NewsStatus title="ニュースなし" message="現在表示できるニュースがありません。" />
         ) : (
