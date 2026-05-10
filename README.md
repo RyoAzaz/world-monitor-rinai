@@ -36,7 +36,7 @@ npm.cmd run build
 
 ## 環境変数
 
-NASDAQ-100（NDX）の取得にはAlpha Vantage APIキーが必要です。`.env.local` に次の値を設定します。
+NASDAQ100 Proxy（QQQ ETF）の取得にはAlpha Vantage APIキーが必要です。`.env.local` に次の値を設定します。
 
 ```txt
 ALPHA_VANTAGE_API_KEY=your_api_key_here
@@ -66,21 +66,22 @@ ALPHA_VANTAGE_API_KEY=your_api_key_here
 - USDJPYのみ実データ接続
 - サーバー側API Route: `/api/market/usdjpy`
 - Frankfurter APIによるUSDJPY取得
-- NASDAQ-100（NDX）の実データ接続
+- NASDAQ100 Proxy（QQQ ETF）の実データ接続
 - サーバー側API Route: `/api/market/nasdaq100`
-- Alpha Vantage APIによるNASDAQ-100日次データ取得
+- Alpha Vantage APIによるQQQ ETF日次データ取得
 - `src/server/services/market-service.ts` へのマーケット取得処理分離
 - TopBarのUSDJPY/NASDAQ欄のみLoading/Error/更新時刻表示
 
 Frankfurter APIのUSDJPYは日次参照レートです。リアルタイム為替レートではありません。
-Alpha VantageのNASDAQ-100は日次参照データです。リアルタイム指数データではありません。無料枠は25 requests/dayを前提に、サーバー側で3600秒以上の再検証間隔を設定しています。
-利用しているAlpha Vantageキーの権限やプランでNDXの取得が許可されていない場合、NASDAQ欄は取得失敗として表示されます。
+Alpha VantageのQQQ ETFは日次参照データです。リアルタイム価格ではありません。無料枠は25 requests/dayを前提に、サーバー側で3600秒以上の再検証間隔を設定しています。
+
+当初はNASDAQ-100指数そのもの（NDX）の取得を検討しましたが、現在のAlpha Vantageキーでは `INDEX_DATA / NDX` が利用できませんでした。Phase2 MVPでは、Nasdaq-100 Indexを追跡するETFであるQQQを代替指標として採用しています。UIでは `NASDAQ100 Proxy` と表示し、NASDAQ-100指数そのものではないことを明示します。
 
 ## サーバー側マーケットデータ構造
 
 ```txt
 src/server/services/market-service.ts
-  USDJPY/NASDAQ-100取得処理、外部APIレスポンス検証、表示用データ整形
+  USDJPY/NASDAQ100 Proxy取得処理、外部APIレスポンス検証、表示用データ整形
 
 src/app/api/market/usdjpy/route.ts
   service呼び出しとHTTPレスポンス変換

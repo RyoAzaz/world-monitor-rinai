@@ -31,7 +31,7 @@ const usdjpyErrorTicker: MarketTicker = {
 
 const nasdaq100LoadingTicker: MarketTicker = {
   id: "nasdaq",
-  label: "NASDAQ100",
+  label: "NASDAQ100 Proxy",
   value: "取得中",
   change: "日次参照",
   direction: "flat",
@@ -40,7 +40,7 @@ const nasdaq100LoadingTicker: MarketTicker = {
 
 const nasdaq100ErrorTicker: MarketTicker = {
   id: "nasdaq",
-  label: "NASDAQ100",
+  label: "NASDAQ100 Proxy",
   value: "取得失敗",
   change: "再読込",
   direction: "flat",
@@ -49,7 +49,7 @@ const nasdaq100ErrorTicker: MarketTicker = {
 
 const dailyReferenceNote = "Frankfurter日次参照レート・リアルタイムではありません";
 const nasdaq100ReferenceNote =
-  "Alpha Vantage日次参照・リアルタイムではありません";
+  "QQQ ETF日次参照・リアルタイムではありません";
 
 export function TopBar() {
   const [usdJpyTicker, setUsdJpyTicker] =
@@ -91,7 +91,7 @@ export function TopBar() {
         const response = await fetch("/api/market/nasdaq100");
 
         if (!response.ok) {
-          throw new Error("Failed to fetch NASDAQ-100.");
+          throw new Error("Failed to fetch NASDAQ-100 proxy.");
         }
 
         const data = (await response.json()) as Nasdaq100QuoteResponse;
