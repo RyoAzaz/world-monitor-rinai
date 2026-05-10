@@ -230,7 +230,7 @@ function createPopup(event: NewsMapEvent) {
 
   const metaElement = document.createElement("p");
   metaElement.className = "map-popup__meta";
-  metaElement.textContent = `${event.regionLabel} ・ ${event.itemCount}件 ・ 最大影響度 ${severityLabel[event.severity]}`;
+  metaElement.textContent = `ニュース由来 ・ 代表点 ・ ${event.itemCount}件 ・ 最大影響度 ${severityLabel[event.severity]}`;
 
   const newsElement = document.createElement("p");
   newsElement.className = "map-popup__meta";
@@ -238,7 +238,7 @@ function createPopup(event: NewsMapEvent) {
 
   const noteElement = document.createElement("p");
   noteElement.className = "map-popup__meta";
-  noteElement.textContent = "関連地域の代表点です。発生地点ではありません。";
+  noteElement.textContent = `${event.regionLabel}に関連する代表点です。発生地点ではありません。`;
 
   popupElement.append(titleElement, metaElement, newsElement, noteElement);
 

@@ -20,6 +20,29 @@ const severityRank: Record<MapEventSeverity, number> = {
   high: 3,
 };
 
+const primaryRegionTagPriority = ["アジア", "ADB", "ASEAN", "G7", "G20", "IMF"];
+
+const lowSeverityKeywords = [
+  "採用",
+  "職員募集",
+  "職員を募集",
+  "調達",
+  "入札公告",
+  "メンテナンス",
+  "公告",
+];
+
+const mediumCapKeywords = [
+  "流動性供給",
+  "追加発行した国債の銘柄",
+  "入札において",
+];
+
+const representativePenaltyKeywords = [
+  ...lowSeverityKeywords,
+  ...mediumCapKeywords,
+];
+
 const REPRESENTATIVE_POINT_NOTE =
   "地図上の点はニュースに関連する地域の代表点であり、正確な発生地点ではありません。";
 
@@ -29,30 +52,19 @@ export async function getNewsMapEvents(): Promise<NewsMapEventsResponse> {
   const groups = new Map<string, NewsMapGroup>();
 
   for (const item of news.items) {
-    const mappedTagsForItem = new Set<string>();
+    const region = selectPrimaryRegion(item, unmappedTags);
 
-    for (const tag of item.regionTags) {
-      const region = getRegionCoordinate(tag);
-
-      if (!region) {
-        unmappedTags.add(tag);
-        continue;
-      }
-
-      if (mappedTagsForItem.has(region.tag)) {
-        continue;
-      }
-
-      mappedTagsForItem.add(region.tag);
-
-      const group = groups.get(region.tag) ?? {
-        region,
-        items: [],
-      };
-
-      group.items.push(item);
-      groups.set(region.tag, group);
+    if (!region) {
+      continue;
     }
+
+    const group = groups.get(region.tag) ?? {
+      region,
+      items: [],
+    };
+
+    group.items.push(item);
+    groups.set(region.tag, group);
   }
 
   return {
@@ -66,7 +78,7 @@ export async function getNewsMapEvents(): Promise<NewsMapEventsResponse> {
 }
 
 function toNewsMapEvent(group: NewsMapGroup): NewsMapEvent {
-  const severity = getMaxSeverity(group.items);
+  const severity = getGroupSeverity(group);
   const representativeItem = getRepresentativeItem(group.items);
   const latestPublishedAt = getLatestPublishedAt(group.items);
 
@@ -86,24 +98,74 @@ function toNewsMapEvent(group: NewsMapGroup): NewsMapEvent {
   };
 }
 
-function getMaxSeverity(items: NewsItem[]): MapEventSeverity {
-  return items.reduce<MapEventSeverity>((maxSeverity, item) => {
-    const severity = toMapEventSeverity(item.marketImpact);
+function selectPrimaryRegion(
+  item: NewsItem,
+  unmappedTags: Set<string>,
+): RegionCoordinate | null {
+  const mappedRegions = item.regionTags.flatMap((tag) => {
+    const region = getRegionCoordinate(tag);
 
-    return severityRank[severity] > severityRank[maxSeverity]
+    if (!region) {
+      unmappedTags.add(tag);
+      return [];
+    }
+
+    return [region];
+  });
+
+  for (const priorityTag of primaryRegionTagPriority) {
+    const region = mappedRegions.find(
+      (mappedRegion) => mappedRegion.tag === priorityTag,
+    );
+
+    if (region) {
+      return region;
+    }
+  }
+
+  return (
+    mappedRegions.find((region) => region.tag !== "日本") ??
+    mappedRegions.find((region) => region.tag === "日本") ??
+    mappedRegions[0] ??
+    null
+  );
+}
+
+function getGroupSeverity(group: NewsMapGroup): MapEventSeverity {
+  const maxSeverity = group.items.reduce<MapEventSeverity>((currentMax, item) => {
+    const severity = getMapSeverity(item);
+
+    return severityRank[severity] > severityRank[currentMax]
       ? severity
-      : maxSeverity;
+      : currentMax;
   }, "low");
+
+  if (group.region.tag !== "日本" || maxSeverity !== "high") {
+    return maxSeverity;
+  }
+
+  const highCount = group.items.filter(
+    (item) => getMapSeverity(item) === "high",
+  ).length;
+
+  return highCount >= 2 || group.items.length === 1 ? "high" : "medium";
 }
 
 function getRepresentativeItem(items: NewsItem[]) {
   return [...items].sort((itemA, itemB) => {
     const severityDiff =
-      severityRank[toMapEventSeverity(itemB.marketImpact)] -
-      severityRank[toMapEventSeverity(itemA.marketImpact)];
+      severityRank[getMapSeverity(itemB)] -
+      severityRank[getMapSeverity(itemA)];
 
     if (severityDiff !== 0) {
       return severityDiff;
+    }
+
+    const penaltyDiff =
+      getRepresentativePenalty(itemA) - getRepresentativePenalty(itemB);
+
+    if (penaltyDiff !== 0) {
+      return penaltyDiff;
     }
 
     return (
@@ -123,6 +185,36 @@ function getLatestPublishedAt(items: NewsItem[]) {
 
 function toMapEventSeverity(impact: MarketImpact): MapEventSeverity {
   return impact;
+}
+
+function getMapSeverity(item: NewsItem): MapEventSeverity {
+  const text = getSearchableText(item);
+  const baseSeverity = toMapEventSeverity(item.marketImpact);
+
+  if (lowSeverityKeywords.some((keyword) => text.includes(keyword))) {
+    return "low";
+  }
+
+  if (
+    baseSeverity === "high" &&
+    mediumCapKeywords.some((keyword) => text.includes(keyword))
+  ) {
+    return "medium";
+  }
+
+  return baseSeverity;
+}
+
+function getRepresentativePenalty(item: NewsItem) {
+  return representativePenaltyKeywords.some((keyword) =>
+    getSearchableText(item).includes(keyword),
+  )
+    ? 1
+    : 0;
+}
+
+function getSearchableText(item: NewsItem) {
+  return `${item.title} ${item.summary}`;
 }
 
 function compareNewsMapEvents(eventA: NewsMapEvent, eventB: NewsMapEvent) {
