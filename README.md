@@ -75,6 +75,9 @@ FRED_API_KEY=your_fred_api_key_here
 - FRED APIによるDGS10日次データ取得
 - `src/server/services/market-service.ts` へのマーケット取得処理分離
 - TopBarのUSDJPY/NASDAQ100 Proxy/米10年金利欄のLoading/Error/更新時刻表示
+- TopBarの横スクロール表示
+- 市場カードの `dataKind / note / priority` による表示メタ情報整理
+- 日経平均とSOXは参考値としてmock表示
 
 Frankfurter APIのUSDJPYは日次参照レートです。リアルタイム為替レートではありません。
 Alpha VantageのQQQ ETFは日次参照データです。リアルタイム価格ではありません。無料枠は25 requests/dayを前提に、サーバー側で3600秒以上の再検証間隔を設定しています。
@@ -149,7 +152,7 @@ src/types/map.ts
   /api/map-events/news の地図イベント型
 
 src/types/dashboard.ts
-  マーケット表示型とfallback用mock型
+  マーケット表示型、dataKind/note/priority、fallback用mock型
 
 src/server/providers/news/rss-sources.ts
   公式RSSソース定義

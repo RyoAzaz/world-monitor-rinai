@@ -17,6 +17,9 @@ const usdjpyLoadingTicker: MarketTicker = {
   change: "日次参照",
   direction: "flat",
   updatedAt: "--:--",
+  dataKind: "real",
+  note: "Frankfurter日次参照レート・リアルタイムではありません",
+  priority: 10,
 };
 
 const usdjpyErrorTicker: MarketTicker = {
@@ -26,6 +29,9 @@ const usdjpyErrorTicker: MarketTicker = {
   change: "再読込",
   direction: "flat",
   updatedAt: "--:--",
+  dataKind: "real",
+  note: "Frankfurter日次参照レート・リアルタイムではありません",
+  priority: 10,
 };
 
 const nasdaq100LoadingTicker: MarketTicker = {
@@ -35,6 +41,9 @@ const nasdaq100LoadingTicker: MarketTicker = {
   change: "日次参照",
   direction: "flat",
   updatedAt: "--:--",
+  dataKind: "real",
+  note: "QQQ ETF日次参照・リアルタイムではありません",
+  priority: 20,
 };
 
 const nasdaq100ErrorTicker: MarketTicker = {
@@ -44,6 +53,9 @@ const nasdaq100ErrorTicker: MarketTicker = {
   change: "再読込",
   direction: "flat",
   updatedAt: "--:--",
+  dataKind: "real",
+  note: "QQQ ETF日次参照・リアルタイムではありません",
+  priority: 20,
 };
 
 const us10yLoadingTicker: MarketTicker = {
@@ -53,6 +65,9 @@ const us10yLoadingTicker: MarketTicker = {
   change: "日次参照",
   direction: "flat",
   updatedAt: "--:--",
+  dataKind: "real",
+  note: "FRED日次参照・リアルタイムではありません",
+  priority: 30,
 };
 
 const us10yErrorTicker: MarketTicker = {
@@ -62,12 +77,10 @@ const us10yErrorTicker: MarketTicker = {
   change: "再読込",
   direction: "flat",
   updatedAt: "--:--",
+  dataKind: "real",
+  note: "FRED日次参照・リアルタイムではありません",
+  priority: 30,
 };
-
-const dailyReferenceNote = "Frankfurter日次参照レート・リアルタイムではありません";
-const nasdaq100ReferenceNote =
-  "QQQ ETF日次参照・リアルタイムではありません";
-const us10yReferenceNote = "FRED日次参照・リアルタイムではありません";
 
 export function TopBar() {
   const [usdJpyTicker, setUsdJpyTicker] =
@@ -98,7 +111,12 @@ export function TopBar() {
         const data = (await response.json()) as UsdJpyRateResponse;
 
         if (!ignore) {
-          setUsdJpyTicker(data.ticker);
+          setUsdJpyTicker({
+            ...data.ticker,
+            dataKind: "real",
+            note: usdjpyLoadingTicker.note,
+            priority: usdjpyLoadingTicker.priority,
+          });
           setUsdJpyStatus("ready");
         }
       } catch {
@@ -120,7 +138,12 @@ export function TopBar() {
         const data = (await response.json()) as Nasdaq100QuoteResponse;
 
         if (!ignore) {
-          setNasdaq100Ticker(data.ticker);
+          setNasdaq100Ticker({
+            ...data.ticker,
+            dataKind: "real",
+            note: nasdaq100LoadingTicker.note,
+            priority: nasdaq100LoadingTicker.priority,
+          });
           setNasdaq100Status("ready");
         }
       } catch {
@@ -142,7 +165,12 @@ export function TopBar() {
         const data = (await response.json()) as Us10yYieldResponse;
 
         if (!ignore) {
-          setUs10yTicker(data.ticker);
+          setUs10yTicker({
+            ...data.ticker,
+            dataKind: "real",
+            note: us10yLoadingTicker.note,
+            priority: us10yLoadingTicker.priority,
+          });
           setUs10yStatus("ready");
         }
       } catch {
@@ -164,23 +192,16 @@ export function TopBar() {
 
   const tickers = useMemo(
     () =>
-      fallbackMarketTickers.map((ticker) => {
-        if (ticker.id === "usdjpy") {
-          return usdJpyTicker;
-        }
+      [
+        usdJpyTicker,
+        nasdaq100Ticker,
+        us10yTicker,
+        ...fallbackMarketTickers,
+      ].sort((tickerA, tickerB) => {
+        const priorityA = tickerA.priority ?? Number.MAX_SAFE_INTEGER;
+        const priorityB = tickerB.priority ?? Number.MAX_SAFE_INTEGER;
 
-        if (ticker.id === "nasdaq") {
-          return nasdaq100Ticker;
-        }
-
-        if (ticker.id === "sox") {
-          return {
-            ...us10yTicker,
-            id: "sox",
-          };
-        }
-
-        return ticker;
+        return priorityA - priorityB;
       }),
     [nasdaq100Ticker, us10yTicker, usdJpyTicker],
   );
@@ -190,20 +211,28 @@ export function TopBar() {
       {tickers.map((ticker) => {
         const isUsdJpy = ticker.id === "usdjpy";
         const isNasdaq100 = ticker.id === "nasdaq";
-        const isUs10y = ticker.label === "米10年金利";
+        const isUs10y = ticker.id === "us10y";
         const isLoading =
           (isUsdJpy && usdJpyStatus === "loading") ||
           (isNasdaq100 && nasdaq100Status === "loading") ||
           (isUs10y && us10yStatus === "loading");
+        const isError =
+          (isUsdJpy && usdJpyStatus === "error") ||
+          (isNasdaq100 && nasdaq100Status === "error") ||
+          (isUs10y && us10yStatus === "error");
         const updatedText =
-          isLoading ? "取得中" : `更新 ${ticker.updatedAt} JST`;
-        const note = isUsdJpy
-          ? dailyReferenceNote
-          : isNasdaq100
-            ? nasdaq100ReferenceNote
-            : isUs10y
-              ? us10yReferenceNote
-            : null;
+          isLoading
+            ? "取得中"
+            : isError
+              ? "取得失敗"
+              : `更新 ${ticker.updatedAt} JST`;
+        const metaText = [
+          updatedText,
+          ticker.dataKind === "mock" ? "参考値" : null,
+          ticker.note,
+        ]
+          .filter(Boolean)
+          .join(" ・ ");
 
         return (
           <section className="ticker" key={ticker.id}>
@@ -214,10 +243,7 @@ export function TopBar() {
                 {ticker.change}
               </div>
             </div>
-            <div className="ticker__updated">
-              {updatedText}
-              {note ? ` ・ ${note}` : null}
-            </div>
+            <div className="ticker__updated">{metaText}</div>
           </section>
         );
       })}

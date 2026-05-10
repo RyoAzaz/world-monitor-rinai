@@ -51,13 +51,18 @@ select {
 }
 
 .top-bar {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  display: flex;
   gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scroll-snap-type: x proximity;
 }
 
 .ticker {
-  min-width: 0;
+  flex: 0 0 220px;
+  min-width: 220px;
+  min-height: 112px;
+  scroll-snap-align: start;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: rgba(13, 20, 32, 0.9);
@@ -110,6 +115,7 @@ select {
   margin-top: 8px;
   color: var(--subtle);
   font-size: 0.72rem;
+  line-height: 1.45;
 }
 
 .dashboard {
@@ -317,7 +323,8 @@ select {
 
 @media (max-width: 980px) {
   .top-bar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-right: -10px;
+    padding-right: 10px;
   }
 
   .dashboard {
@@ -340,7 +347,12 @@ select {
   }
 
   .top-bar {
-    grid-template-columns: 1fr;
+    margin-right: -10px;
+  }
+
+  .ticker {
+    flex-basis: 200px;
+    min-width: 200px;
   }
 
   .panel__header {

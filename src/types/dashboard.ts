@@ -1,4 +1,5 @@
 export type MarketDirection = "up" | "down" | "flat";
+export type MarketDataKind = "real" | "mock";
 
 export type MarketTicker = {
   id: string;
@@ -7,6 +8,9 @@ export type MarketTicker = {
   change: string;
   direction: MarketDirection;
   updatedAt: string;
+  dataKind?: MarketDataKind;
+  note?: string;
+  priority?: number;
 };
 
 export type MarketDataSource = {
