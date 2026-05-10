@@ -1,13 +1,22 @@
-# World Monitor 投資・地政学ダッシュボード
+# RinAI Market Monitor α版
 
-World Monitor をベースにした、日本語の投資家向けダッシュボードです。「世界地図 + マーケット + ニュース」を1画面に統合し、市場データと背景ニュースを同じ画面で確認できる構成を段階的に実装しています。
+World Monitor をベースにした、日本語の投資・地政学ダッシュボードです。α版では「世界地図 + マーケットProxy + 公式RSSニュース」を1画面に統合し、NY市場後、東京寄り前、日中確認で使うための最小構成を実装しています。
 
-## 起動方法
+このリポジトリは投資判断を支援する情報表示ツールです。投資助言、売買推奨、発注、AI分析は行いません。
+
+## 起動手順
 
 依存関係をインストールします。
 
 ```powershell
 npm.cmd install
+```
+
+`.env.local` を作成し、必要なAPIキーを設定します。
+
+```txt
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key_here
+FRED_API_KEY=your_fred_api_key_here
 ```
 
 開発サーバーを起動します。
@@ -16,212 +25,137 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-起動後、ブラウザで次のURLを開きます。
+ブラウザで次のURLを開きます。
 
 ```txt
 http://localhost:3000
 ```
 
-## 型チェック方法
+## 確認コマンド
+
+型チェック:
 
 ```powershell
 npm.cmd run typecheck
 ```
 
-## ビルド方法
+ビルド:
 
 ```powershell
 npm.cmd run build
 ```
 
-## 環境変数
+## 必要な環境変数
 
-NASDAQ100 Proxy（QQQ ETF）とS&P500 Proxy（SPY ETF）の取得にはAlpha Vantage APIキー、米10年金利とVIXの取得にはFRED APIキーが必要です。`.env.local` に次の値を設定します。
+| 変数名 | 用途 | 備考 |
+|---|---|---|
+| `ALPHA_VANTAGE_API_KEY` | SPY / QQQ の日次ETFデータ取得 | サーバー側のみで使用。画面/APIレスポンスには出しません |
+| `FRED_API_KEY` | VIXCLS / DGS10 の日次データ取得 | サーバー側のみで使用。画面/APIレスポンスには出しません |
 
-```txt
-ALPHA_VANTAGE_API_KEY=your_api_key_here
-FRED_API_KEY=your_fred_api_key_here
-```
+`.env.local` はGit管理対象に含めません。
 
-`.env.local` はGit管理対象に含めません。APIキーはサーバー側の `process.env.ALPHA_VANTAGE_API_KEY` と `process.env.FRED_API_KEY` からのみ読み込み、画面やAPIレスポンスには出しません。
+## α版で実装済みの範囲
 
-## Phase1で実装済みの機能
+### 基本UI
 
-- Next.js + TypeScript の基本構成
-- App Router 構成
-- ダークテーマの日本語UI
-- レスポンシブ対応のダッシュボードレイアウト
-- 上部マーケットバー
-  - 日経平均
-  - USDJPY
-  - NASDAQ
-  - SOX
-- MapLibre GL JS を使った世界地図パネル
-- ダミー地政学イベントの地図表示
-- 日本語ニュース一覧パネル
-- ダミーデータによる画面表示
-- TypeScript strict mode 対応
+- Next.js + TypeScript
+- App Router
+- TypeScript strict mode
+- 日本語UI
+- ダークテーマ
+- レスポンシブ対応
+- TopBar横スクロール表示
+- 左: MapLibre GL JS の世界地図
+- 右: ニュース一覧
 
-## Phase2で追加した内容
+### マーケット表示
 
-- USDJPYのみ実データ接続
-- サーバー側API Route: `/api/market/usdjpy`
-- Frankfurter APIによるUSDJPY取得
-- NASDAQ100 Proxy（QQQ ETF）の実データ接続
-- サーバー側API Route: `/api/market/nasdaq100`
-- Alpha Vantage APIによるQQQ ETF日次データ取得
-- 米10年金利（DGS10）の実データ接続
-- サーバー側API Route: `/api/market/us10y`
-- FRED APIによるDGS10日次データ取得
-- `src/server/services/market-service.ts` へのマーケット取得処理分離
-- TopBarのUSDJPY/NASDAQ100 Proxy/米10年金利欄のLoading/Error/更新時刻表示
-- TopBarの横スクロール表示
-- 市場カードの `dataKind / note / priority` による表示メタ情報整理
-- 日経平均とSOXは参考値としてmock表示
+| 表示名 | データ元 | 性質 |
+|---|---|---|
+| `USDJPY` | Frankfurter API | 日次参照レート。リアルタイム為替ではありません |
+| `S&P500 Proxy` | Alpha Vantage / SPY ETF | S&P500指数そのものではなく、SPY ETFの日次参照データです |
+| `NASDAQ100 Proxy` | Alpha Vantage / QQQ ETF | NASDAQ-100指数そのものではなく、QQQ ETFの日次参照データです |
+| `VIX` | FRED / VIXCLS | VIXの日次終値です。リアルタイムではありません |
+| `米10年金利` | FRED / DGS10 | 米10年国債利回りの日次参照データです |
+| `日経平均` | mock | 実データ未接続の参考値です |
+| `SOX` | mock | 実データ未接続の参考値です |
 
-Frankfurter APIのUSDJPYは日次参照レートです。リアルタイム為替レートではありません。
-Alpha VantageのQQQ ETFは日次参照データです。リアルタイム価格ではありません。無料枠は25 requests/dayを前提に、サーバー側で3600秒以上の再検証間隔を設定しています。
-Alpha VantageのSPY ETFは日次参照データです。リアルタイム価格ではありません。S&P500指数そのものではなく、S&P500に連動するETFを使ったProxy表示です。
-FRED APIのDGS10は米10年国債利回りの日次参照データです。リアルタイム金利ではありません。
-FRED APIのVIXCLSはVIXの日次終値データです。リアルタイムのVIX指数ではありません。
+Alpha Vantage無料枠は25 requests/dayを前提にしています。SPY/QQQは過剰リクエストを避けるため、サーバー側で3600秒以上の再検証間隔を設定しています。
 
-当初はNASDAQ-100指数そのもの（NDX）の取得を検討しましたが、現在のAlpha Vantageキーでは `INDEX_DATA / NDX` が利用できませんでした。Phase2 MVPでは、Nasdaq-100 Indexを追跡するETFであるQQQを代替指標として採用しています。UIでは `NASDAQ100 Proxy` と表示し、NASDAQ-100指数そのものではないことを明示します。
+### ニュース表示
 
-## Phase3で追加した内容
+- 公式RSS集約API: `/api/news`
+- 初期RSSソース:
+  - JPX: `https://www.jpx.co.jp/rss/markets_news.xml`
+  - 金融庁: `https://www.fsa.go.jp/fsaNewsListAll_rss2.xml`
+  - 財務省: `https://www.mof.go.jp/news.rss`
+- 表示項目:
+  - source
+  - title
+  - url
+  - publishedAt
+  - short summary
+  - regionTags
+  - marketImpact
+- 一部RSS取得失敗時は、取得できたitemsを返し、`sourceStatuses` と `partialFailure` を表示します。
+- 記事本文スクレイピング、長文本文保存、AI要約は行っていません。
 
-- 公式RSSによるニュース取得
-- サーバー側API Route: `/api/news`
-- JPX、金融庁、財務省RSSの集約
-- RSS XMLの取得、正規化、重複除去
-- RSS source別statusと一部失敗時の部分成功レスポンス
-- `regionTags` のルールベース付与
-- `marketImpact: high / medium / low` のルールベース判定
-- NewsPanelのLoading/Error表示
-- ニュース由来の地図イベントAPI: `/api/map-events/news`
-- ニュースの `regionTags` と `marketImpact` を使った地図上の代表点表示
+### 地図イベント表示
 
-ニュースは公式RSSに含まれる `title / source / url / publishedAt / summary` 程度の短い情報だけを表示します。記事本文のスクレイピング、長文本文の保存・再配布、AI要約、DB保存は行っていません。
-summaryはRSS itemの `description` または `summary` のみを使用します。本文に近い `content:encoded` は再配布リスクを避けるため使用しません。summaryが空の場合、NewsPanelでは「概要なし」と控えめに表示します。
+- ニュース由来地図イベントAPI: `/api/map-events/news`
+- `/api/news` の `regionTags` と `marketImpact` を使って、地図上に代表点を表示します。
+- 同一 `regionTag` は集約し、件数と最大影響度を表示します。
+- 地図上の点は関連地域の代表点であり、正確な発生地点ではありません。
+- 地図イベント取得に失敗した場合はfallback mockを使用します。
 
-金融庁RSSのように `JST` 表記の日時が含まれる場合は、サーバー側で `+0900` として正規化します。`regionTags` は日本に加え、アジア、ASEAN、ADB、G7、G20、IMFをルールベースで付与します。`marketImpact` は採用、職員募集、調達、入札公告、メンテナンスなどを低影響として優先判定します。
-
-地図上のニュース点は、ニュースに関連する地域の代表点です。正確な発生地点、取引所所在地、当局所在地、または記事本文から抽出した位置情報ではありません。同一 `regionTag` のニュースは地図イベントとして集約し、件数と最大影響度を表示します。
-地図イベントでは、1記事につき地図用のprimary region tagを1つ選びます。日本以外にアジア、ADB、ASEAN、G7、G20、IMFが含まれる場合はそれらを優先し、日本のみの場合は日本へ集約します。採用、職員募集、調達、入札公告、メンテナンス、公告は地図上のseverityをlowへ補正します。流動性供給、追加発行した国債の銘柄、入札において、などの定型国債・入札系はseverityをmedium上限に補正します。日本イベントはhigh件数も見て、単発のhigh判定だけで過剰に強調されないようにしています。
-`/api/news` は既存の `items / fetchedAt / sources` を維持したまま、`sourceStatuses` と `partialFailure` を追加しています。一部RSSが失敗しても取得できたitemsは返し、全RSS取得失敗時のみエラーにします。NewsPanelでは一部失敗時に短い注記だけを表示します。
-
-## Phase4で整理/追加した内容
-
-- 実データ用ニュース型とfallback用mock型の分離
-- APIエラーレスポンス型の `ApiErrorResponse` への最小共通化
-- client fetch状態の `ClientFetchStatus` への統一
-- mockデータをfallbackまたは未接続データの表示用として明示
-- READMEの実装済みPhaseと今後予定の整理
-- VIX（FRED VIXCLS）の実データ接続
-- サーバー側API Route: `/api/market/vix`
-- TopBarのVIXカード追加
-
-## Phase5で追加した内容
-
-- S&P500 Proxy（SPY ETF）の実データ接続
-- サーバー側API Route: `/api/market/sp500-proxy`
-- Alpha Vantage APIによるSPY ETF日次データ取得
-- Alpha Vantage ETF日次取得処理の共通化
-- TopBarのS&P500 Proxyカード追加
-
-SPY ETFはS&P500指数そのものではありません。ETFの価格にはトラッキングエラー、分配金、経費率、取引時間差などが影響する可能性があります。Phase5では米国市場全体のProxyとして表示します。
-
-初期RSSソース:
-
-- JPX: `https://www.jpx.co.jp/rss/markets_news.xml`
-- 金融庁: `https://www.fsa.go.jp/fsaNewsListAll_rss2.xml`
-- 財務省: `https://www.mof.go.jp/news.rss`
-
-## サーバー側マーケットデータ構造
+## API Route一覧
 
 ```txt
-src/server/services/market-service.ts
-  USDJPY/S&P500 Proxy/NASDAQ100 Proxy/DGS10/VIXCLS取得処理、外部APIレスポンス検証、表示用データ整形
-
-src/app/api/market/usdjpy/route.ts
-  service呼び出しとHTTPレスポンス変換
-
-src/app/api/market/nasdaq100/route.ts
-  service呼び出しとHTTPレスポンス変換
-
-src/app/api/market/sp500-proxy/route.ts
-  service呼び出しとHTTPレスポンス変換
-
-src/app/api/market/us10y/route.ts
-  service呼び出しとHTTPレスポンス変換
-
-src/app/api/market/vix/route.ts
-  service呼び出しとHTTPレスポンス変換
+/api/market/usdjpy
+/api/market/sp500-proxy
+/api/market/nasdaq100
+/api/market/vix
+/api/market/us10y
+/api/news
+/api/map-events/news
 ```
 
-将来、日経平均やNASDAQなどを追加する場合は、API Routeへ直接取得処理を書かず、`market-service.ts` に取得関数を追加してからRouteで呼び出します。
+## α版の利用手順
 
-## サーバー側ニュースデータ構造
+### NYクローズ後
 
-```txt
-src/types/api.ts
-  APIエラーレスポンス型とclient fetch状態の共通型
+- `S&P500 Proxy` と `NASDAQ100 Proxy` で米国株式市場の方向感を確認します。
+- `VIX` でリスクオン/オフの変化を確認します。
+- `米10年金利` で金利環境の変化を確認します。
+- 公式RSSニュースと地図イベントで背景材料を確認します。
 
-src/types/news.ts
-  /api/news の実データ型
+### 東京寄り前
 
-src/types/map.ts
-  /api/map-events/news の地図イベント型
+- `USDJPY`、米国株Proxy、`VIX`、`米10年金利` をまとめて確認します。
+- 日本関連ニュース、金融庁/財務省/JPXの更新を確認します。
+- 地図上の代表点で、地域別にニュースが偏っていないか確認します。
 
-src/types/dashboard.ts
-  マーケット表示型、dataKind/note/priority、fallback用mock型
+### 日中確認
 
-src/server/providers/news/rss-sources.ts
-  公式RSSソース定義
+- ニュース一覧の更新と一部RSS取得失敗表示を確認します。
+- 地図イベントの件数、最大影響度、代表ニュースタイトルを確認します。
+- マーケットカードは日次参照データ中心のため、日中のリアルタイム監視用途ではなく、背景確認として扱います。
 
-src/server/providers/news/rss-provider.ts
-  RSS XML取得、解析、ニュース項目への正規化
+## Known Issues / 未実装機能
 
-src/server/services/news-classification-rules.ts
-  regionTagsとmarketImpactのルール
+- RinAI統合は未実装です。
+- AI分析、AI要約、重要度のAI判定は未実装です。
+- 認証、DB、Redis、SSE、WebSocketは未実装です。
+- Watchlist保存、アラート、発注機能は未実装です。
+- 日経平均とSOXはまだmock表示です。
+- SPY/QQQはETF Proxyであり、指数そのものではありません。
+- Frankfurter、Alpha Vantage、FREDはいずれもリアルタイム表示ではありません。
+- Alpha Vantage無料枠が少ないため、頻繁なリロードで制限に当たる可能性があります。
+- RSSニュースは公式RSSの範囲に限定しており、網羅的なニュース取得ではありません。
+- 地図イベントは代表点表示であり、正確な発生地点や取引所所在地を表すものではありません。
 
-src/server/services/news-service.ts
-  複数RSSの集約、重複除去、並び替え、source別status生成
+## 今後の改善候補
 
-src/app/api/news/route.ts
-  service呼び出しとHTTPレスポンス変換
-
-src/server/providers/map/region-coordinates.ts
-  regionTagsと地図上の代表座標の対応表
-
-src/server/services/news-map-service.ts
-  NewsItemからニュース由来の地図イベントへの集約
-
-src/server/services/news-map-rules.ts
-  地図用severity補正、primary region tag、代表ニュース選定ルール
-
-src/app/api/map-events/news/route.ts
-  ニュース由来地図イベントのHTTPレスポンス変換
-```
-
-## 今後の予定
-
-- 日経平均、SOX、TOPIXなどのマーケットデータ追加設計
-- RSS取得のtimeout、source別status、部分失敗表示
-- ニュース分類と地図イベントseverityルールの精度改善
-- 地図データとイベントデータの精度向上
-- Watchlist、アラート、リアルタイム更新の検討
-- RinAI 統合の設計
-
-## Phase1では未実装のもの
-
-- 認証
-- DB
-- Redis
-- SSE
-- WebSocket
-- Watchlist保存
-- アラート
-- 有料API連携
-- AI分析
-- RinAI
-- 発注機能
+1. SOX ProxyとしてSOXXまたはSMHを追加する。
+2. 日本市場Proxyとして日経平均またはTOPIX連動ETFを追加する。
+3. RSS/地図イベントの分類ルールを改善し、低影響ニュースのノイズをさらに下げる。
