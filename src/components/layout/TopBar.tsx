@@ -6,6 +6,7 @@ import type { ClientFetchStatus } from "@/types/api";
 import type {
   MarketTicker,
   Nasdaq100QuoteResponse,
+  Us10yYieldResponse,
   UsdJpyRateResponse,
 } from "@/types/dashboard";
 
@@ -45,9 +46,28 @@ const nasdaq100ErrorTicker: MarketTicker = {
   updatedAt: "--:--",
 };
 
+const us10yLoadingTicker: MarketTicker = {
+  id: "us10y",
+  label: "米10年金利",
+  value: "取得中",
+  change: "日次参照",
+  direction: "flat",
+  updatedAt: "--:--",
+};
+
+const us10yErrorTicker: MarketTicker = {
+  id: "us10y",
+  label: "米10年金利",
+  value: "取得失敗",
+  change: "再読込",
+  direction: "flat",
+  updatedAt: "--:--",
+};
+
 const dailyReferenceNote = "Frankfurter日次参照レート・リアルタイムではありません";
 const nasdaq100ReferenceNote =
   "QQQ ETF日次参照・リアルタイムではありません";
+const us10yReferenceNote = "FRED日次参照・リアルタイムではありません";
 
 export function TopBar() {
   const [usdJpyTicker, setUsdJpyTicker] =
@@ -58,6 +78,10 @@ export function TopBar() {
     nasdaq100LoadingTicker,
   );
   const [nasdaq100Status, setNasdaq100Status] =
+    useState<ClientFetchStatus>("loading");
+  const [us10yTicker, setUs10yTicker] =
+    useState<MarketTicker>(us10yLoadingTicker);
+  const [us10yStatus, setUs10yStatus] =
     useState<ClientFetchStatus>("loading");
 
   useEffect(() => {
@@ -107,8 +131,31 @@ export function TopBar() {
       }
     }
 
+    async function loadUs10y() {
+      try {
+        const response = await fetch("/api/market/us10y");
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch US10Y yield.");
+        }
+
+        const data = (await response.json()) as Us10yYieldResponse;
+
+        if (!ignore) {
+          setUs10yTicker(data.ticker);
+          setUs10yStatus("ready");
+        }
+      } catch {
+        if (!ignore) {
+          setUs10yTicker(us10yErrorTicker);
+          setUs10yStatus("error");
+        }
+      }
+    }
+
     void loadUsdJpy();
     void loadNasdaq100();
+    void loadUs10y();
 
     return () => {
       ignore = true;
@@ -126,9 +173,16 @@ export function TopBar() {
           return nasdaq100Ticker;
         }
 
+        if (ticker.id === "sox") {
+          return {
+            ...us10yTicker,
+            id: "sox",
+          };
+        }
+
         return ticker;
       }),
-    [nasdaq100Ticker, usdJpyTicker],
+    [nasdaq100Ticker, us10yTicker, usdJpyTicker],
   );
 
   return (
@@ -136,15 +190,19 @@ export function TopBar() {
       {tickers.map((ticker) => {
         const isUsdJpy = ticker.id === "usdjpy";
         const isNasdaq100 = ticker.id === "nasdaq";
+        const isUs10y = ticker.label === "米10年金利";
         const isLoading =
           (isUsdJpy && usdJpyStatus === "loading") ||
-          (isNasdaq100 && nasdaq100Status === "loading");
+          (isNasdaq100 && nasdaq100Status === "loading") ||
+          (isUs10y && us10yStatus === "loading");
         const updatedText =
           isLoading ? "取得中" : `更新 ${ticker.updatedAt} JST`;
         const note = isUsdJpy
           ? dailyReferenceNote
           : isNasdaq100
             ? nasdaq100ReferenceNote
+            : isUs10y
+              ? us10yReferenceNote
             : null;
 
         return (

@@ -27,6 +27,11 @@ export type Nasdaq100QuoteResponse = {
   source: MarketDataSource;
 };
 
+export type Us10yYieldResponse = {
+  ticker: MarketTicker;
+  source: MarketDataSource;
+};
+
 export type FallbackImpactLevel = "高" | "中" | "低";
 
 export type FallbackNewsItem = {

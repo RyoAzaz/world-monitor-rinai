@@ -1,6 +1,7 @@
 import type {
   MarketDirection,
   Nasdaq100QuoteResponse,
+  Us10yYieldResponse,
   UsdJpyRateResponse,
 } from "@/types/dashboard";
 
@@ -29,12 +30,24 @@ type AlphaVantageDailyTimeSeriesResponse = {
   "Time Series (Daily)": Record<string, AlphaVantageDailyBar>;
 };
 
+type FredObservation = {
+  date?: string;
+  value?: string;
+};
+
+type FredSeriesObservationsResponse = {
+  observations?: FredObservation[];
+};
+
 const FRANKFURTER_REVALIDATE_SECONDS = 300;
 const ALPHA_VANTAGE_REVALIDATE_SECONDS = 3600;
+const FRED_REVALIDATE_SECONDS = 3600;
 const FRANKFURTER_USDJPY_URL =
   "https://api.frankfurter.app/latest?amount=1&from=USD&to=JPY";
 const ALPHA_VANTAGE_QQQ_PROXY_SOURCE_URL =
   "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=QQQ&outputsize=compact";
+const FRED_DGS10_SOURCE_URL =
+  "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&file_type=json&sort_order=desc&limit=5";
 
 const USDJPY_FETCH_FAILED_MESSAGE = "USDJPYレートの取得に失敗しました。";
 const USDJPY_INVALID_RESPONSE_MESSAGE =
@@ -51,6 +64,12 @@ const NASDAQ100_INVALID_RESPONSE_MESSAGE =
   "QQQ proxyデータのレスポンス形式が不正です。";
 const NASDAQ100_UNEXPECTED_ERROR_MESSAGE =
   "QQQ proxyデータの取得中にエラーが発生しました。";
+const US10Y_API_KEY_MISSING_MESSAGE = "FRED_API_KEYが未設定です。";
+const US10Y_FETCH_FAILED_MESSAGE = "米10年金利の取得に失敗しました。";
+const US10Y_INVALID_RESPONSE_MESSAGE =
+  "米10年金利のレスポンス形式が不正です。";
+const US10Y_UNEXPECTED_ERROR_MESSAGE =
+  "米10年金利の取得中にエラーが発生しました。";
 
 export class MarketServiceError extends Error {
   status: number;
@@ -91,11 +110,22 @@ function formatIndexValue(value: number) {
   }).format(value);
 }
 
+function formatYieldValue(value: number) {
+  return `${value.toFixed(2)}%`;
+}
+
 function formatPercentChange(latest: number, previous: number) {
   const changePercent = ((latest - previous) / previous) * 100;
   const sign = changePercent > 0 ? "+" : "";
 
   return `${sign}${changePercent.toFixed(2)}%`;
+}
+
+function formatYieldChange(latest: number, previous: number) {
+  const changeBasisPoints = (latest - previous) * 100;
+  const sign = changeBasisPoints > 0 ? "+" : "";
+
+  return `${sign}${changeBasisPoints.toFixed(0)}bp`;
 }
 
 function getDirection(latest: number, previous: number): MarketDirection {
@@ -180,6 +210,20 @@ function hasAlphaVantageProviderMessage(value: unknown) {
   );
 }
 
+function isFredSeriesObservationsResponse(
+  value: unknown,
+): value is FredSeriesObservationsResponse {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const response = value as {
+    observations?: unknown;
+  };
+
+  return Array.isArray(response.observations);
+}
+
 function buildAlphaVantageQqqProxyUrl(apiKey: string) {
   const params = new URLSearchParams({
     function: "TIME_SERIES_DAILY",
@@ -189,6 +233,18 @@ function buildAlphaVantageQqqProxyUrl(apiKey: string) {
   });
 
   return `https://www.alphavantage.co/query?${params.toString()}`;
+}
+
+function buildFredDgs10Url(apiKey: string) {
+  const params = new URLSearchParams({
+    series_id: "DGS10",
+    api_key: apiKey,
+    file_type: "json",
+    sort_order: "desc",
+    limit: "5",
+  });
+
+  return `https://api.stlouisfed.org/fred/series/observations?${params.toString()}`;
 }
 
 async function fetchFrankfurterUsdJpy() {
@@ -237,6 +293,30 @@ async function fetchAlphaVantageQqqProxy() {
   return payload;
 }
 
+async function fetchFredDgs10() {
+  const apiKey = process.env.FRED_API_KEY?.trim();
+
+  if (!apiKey) {
+    throw new MarketServiceError(US10Y_API_KEY_MISSING_MESSAGE, 503);
+  }
+
+  const response = await fetch(buildFredDgs10Url(apiKey), {
+    next: { revalidate: FRED_REVALIDATE_SECONDS },
+  });
+
+  if (!response.ok) {
+    throw new MarketServiceError(US10Y_FETCH_FAILED_MESSAGE);
+  }
+
+  const payload: unknown = await response.json();
+
+  if (!isFredSeriesObservationsResponse(payload)) {
+    throw new MarketServiceError(US10Y_INVALID_RESPONSE_MESSAGE);
+  }
+
+  return payload;
+}
+
 function getLatestDailyBars(payload: AlphaVantageDailyTimeSeriesResponse) {
   const entries = Object.entries(payload["Time Series (Daily)"]).sort(
     ([dateA], [dateB]) => dateB.localeCompare(dateA),
@@ -259,6 +339,31 @@ function getLatestDailyBars(payload: AlphaVantageDailyTimeSeriesResponse) {
     latestDate: latest[0],
     latestClose,
     previousClose,
+  };
+}
+
+function getLatestFredObservations(payload: FredSeriesObservationsResponse) {
+  const validObservations =
+    payload.observations
+      ?.map((observation) => ({
+        date: observation.date,
+        value: parseNumber(observation.value),
+      }))
+      .filter(
+        (observation): observation is { date: string; value: number } =>
+          typeof observation.date === "string" && observation.value !== null,
+      ) ?? [];
+  const latest = validObservations[0];
+  const previous = validObservations[1];
+
+  if (!latest) {
+    throw new MarketServiceError(US10Y_INVALID_RESPONSE_MESSAGE);
+  }
+
+  return {
+    latestDate: latest.date,
+    latestValue: latest.value,
+    previousValue: previous?.value ?? null,
   };
 }
 
@@ -328,5 +433,44 @@ export async function getNasdaq100Quote(): Promise<Nasdaq100QuoteResponse> {
     }
 
     throw new MarketServiceError(NASDAQ100_UNEXPECTED_ERROR_MESSAGE);
+  }
+}
+
+export async function getUs10yYield(): Promise<Us10yYieldResponse> {
+  try {
+    const payload = await fetchFredDgs10();
+    const { latestDate, latestValue, previousValue } =
+      getLatestFredObservations(payload);
+    const fetchedAt = new Date();
+
+    return {
+      ticker: {
+        id: "us10y",
+        label: "米10年金利",
+        value: formatYieldValue(latestValue),
+        change:
+          previousValue === null
+            ? "日次参照"
+            : formatYieldChange(latestValue, previousValue),
+        direction:
+          previousValue === null
+            ? "flat"
+            : getDirection(latestValue, previousValue),
+        updatedAt: formatJstTime(fetchedAt),
+      },
+      source: {
+        name: "FRED",
+        url: FRED_DGS10_SOURCE_URL,
+        dataDate: latestDate,
+        fetchedAt: fetchedAt.toISOString(),
+        note: "FREDのDGS10日次参照データです。リアルタイム金利ではありません。",
+      },
+    };
+  } catch (error) {
+    if (isMarketServiceError(error)) {
+      throw error;
+    }
+
+    throw new MarketServiceError(US10Y_UNEXPECTED_ERROR_MESSAGE);
   }
 }
