@@ -1,6 +1,7 @@
 import type {
   MarketDirection,
   Nasdaq100QuoteResponse,
+  Sp500ProxyQuoteResponse,
   Us10yYieldResponse,
   UsdJpyRateResponse,
   VixIndexResponse,
@@ -47,6 +48,8 @@ const FRANKFURTER_USDJPY_URL =
   "https://api.frankfurter.app/latest?amount=1&from=USD&to=JPY";
 const ALPHA_VANTAGE_QQQ_PROXY_SOURCE_URL =
   "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=QQQ&outputsize=compact";
+const ALPHA_VANTAGE_SPY_PROXY_SOURCE_URL =
+  "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact";
 const FRED_DGS10_SOURCE_URL =
   "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&file_type=json&sort_order=desc&limit=5";
 const FRED_VIXCLS_SOURCE_URL =
@@ -67,6 +70,16 @@ const NASDAQ100_INVALID_RESPONSE_MESSAGE =
   "QQQ proxyデータのレスポンス形式が不正です。";
 const NASDAQ100_UNEXPECTED_ERROR_MESSAGE =
   "QQQ proxyデータの取得中にエラーが発生しました。";
+const SP500_PROXY_API_KEY_MISSING_MESSAGE =
+  "ALPHA_VANTAGE_API_KEYが未設定です。";
+const SP500_PROXY_FETCH_FAILED_MESSAGE =
+  "SPY proxyデータの取得に失敗しました。";
+const SP500_PROXY_PROVIDER_LIMIT_MESSAGE =
+  "SPY proxyデータの取得がAlpha Vantage側の制限または権限により失敗しました。";
+const SP500_PROXY_INVALID_RESPONSE_MESSAGE =
+  "SPY proxyデータのレスポンス形式が不正です。";
+const SP500_PROXY_UNEXPECTED_ERROR_MESSAGE =
+  "SPY proxyデータの取得中にエラーが発生しました。";
 const US10Y_API_KEY_MISSING_MESSAGE = "FRED_API_KEYが未設定です。";
 const US10Y_FETCH_FAILED_MESSAGE = "米10年金利の取得に失敗しました。";
 const US10Y_INVALID_RESPONSE_MESSAGE =
@@ -239,10 +252,10 @@ function isFredSeriesObservationsResponse(
   return Array.isArray(response.observations);
 }
 
-function buildAlphaVantageQqqProxyUrl(apiKey: string) {
+function buildAlphaVantageDailyTimeSeriesUrl(symbol: string, apiKey: string) {
   const params = new URLSearchParams({
     function: "TIME_SERIES_DAILY",
-    symbol: "QQQ",
+    symbol,
     outputsize: "compact",
     apikey: apiKey,
   });
@@ -280,32 +293,67 @@ async function fetchFrankfurterUsdJpy() {
   return payload;
 }
 
-async function fetchAlphaVantageQqqProxy() {
+async function fetchAlphaVantageDailyTimeSeries({
+  fetchFailedMessage,
+  invalidResponseMessage,
+  missingApiKeyMessage,
+  providerLimitMessage,
+  symbol,
+}: {
+  fetchFailedMessage: string;
+  invalidResponseMessage: string;
+  missingApiKeyMessage: string;
+  providerLimitMessage: string;
+  symbol: string;
+}) {
   const apiKey = process.env.ALPHA_VANTAGE_API_KEY?.trim();
 
   if (!apiKey) {
-    throw new MarketServiceError(NASDAQ100_API_KEY_MISSING_MESSAGE, 503);
+    throw new MarketServiceError(missingApiKeyMessage, 503);
   }
 
-  const response = await fetch(buildAlphaVantageQqqProxyUrl(apiKey), {
-    next: { revalidate: ALPHA_VANTAGE_REVALIDATE_SECONDS },
-  });
+  const response = await fetch(
+    buildAlphaVantageDailyTimeSeriesUrl(symbol, apiKey),
+    {
+      next: { revalidate: ALPHA_VANTAGE_REVALIDATE_SECONDS },
+    },
+  );
 
   if (!response.ok) {
-    throw new MarketServiceError(NASDAQ100_FETCH_FAILED_MESSAGE);
+    throw new MarketServiceError(fetchFailedMessage);
   }
 
   const payload: unknown = await response.json();
 
   if (hasAlphaVantageProviderMessage(payload)) {
-    throw new MarketServiceError(NASDAQ100_PROVIDER_LIMIT_MESSAGE);
+    throw new MarketServiceError(providerLimitMessage);
   }
 
   if (!isAlphaVantageDailyTimeSeriesResponse(payload)) {
-    throw new MarketServiceError(NASDAQ100_INVALID_RESPONSE_MESSAGE);
+    throw new MarketServiceError(invalidResponseMessage);
   }
 
   return payload;
+}
+
+function fetchAlphaVantageQqqProxy() {
+  return fetchAlphaVantageDailyTimeSeries({
+    fetchFailedMessage: NASDAQ100_FETCH_FAILED_MESSAGE,
+    invalidResponseMessage: NASDAQ100_INVALID_RESPONSE_MESSAGE,
+    missingApiKeyMessage: NASDAQ100_API_KEY_MISSING_MESSAGE,
+    providerLimitMessage: NASDAQ100_PROVIDER_LIMIT_MESSAGE,
+    symbol: "QQQ",
+  });
+}
+
+function fetchAlphaVantageSpyProxy() {
+  return fetchAlphaVantageDailyTimeSeries({
+    fetchFailedMessage: SP500_PROXY_FETCH_FAILED_MESSAGE,
+    invalidResponseMessage: SP500_PROXY_INVALID_RESPONSE_MESSAGE,
+    missingApiKeyMessage: SP500_PROXY_API_KEY_MISSING_MESSAGE,
+    providerLimitMessage: SP500_PROXY_PROVIDER_LIMIT_MESSAGE,
+    symbol: "SPY",
+  });
 }
 
 async function fetchFredObservations({
@@ -360,7 +408,10 @@ function fetchFredVixCls() {
   });
 }
 
-function getLatestDailyBars(payload: AlphaVantageDailyTimeSeriesResponse) {
+function getLatestDailyBars(
+  payload: AlphaVantageDailyTimeSeriesResponse,
+  invalidResponseMessage: string,
+) {
   const entries = Object.entries(payload["Time Series (Daily)"]).sort(
     ([dateA], [dateB]) => dateB.localeCompare(dateA),
   );
@@ -368,14 +419,14 @@ function getLatestDailyBars(payload: AlphaVantageDailyTimeSeriesResponse) {
   const previous = entries[1];
 
   if (!latest) {
-    throw new MarketServiceError(NASDAQ100_INVALID_RESPONSE_MESSAGE);
+    throw new MarketServiceError(invalidResponseMessage);
   }
 
   const latestClose = parseNumber(latest[1]["4. close"]);
   const previousClose = previous ? parseNumber(previous[1]["4. close"]) : null;
 
   if (latestClose === null) {
-    throw new MarketServiceError(NASDAQ100_INVALID_RESPONSE_MESSAGE);
+    throw new MarketServiceError(invalidResponseMessage);
   }
 
   return {
@@ -447,7 +498,10 @@ export async function getUsdJpyRate(): Promise<UsdJpyRateResponse> {
 export async function getNasdaq100Quote(): Promise<Nasdaq100QuoteResponse> {
   try {
     const payload = await fetchAlphaVantageQqqProxy();
-    const { latestDate, latestClose, previousClose } = getLatestDailyBars(payload);
+    const { latestDate, latestClose, previousClose } = getLatestDailyBars(
+      payload,
+      NASDAQ100_INVALID_RESPONSE_MESSAGE,
+    );
     const fetchedAt = new Date();
 
     return {
@@ -479,6 +533,47 @@ export async function getNasdaq100Quote(): Promise<Nasdaq100QuoteResponse> {
     }
 
     throw new MarketServiceError(NASDAQ100_UNEXPECTED_ERROR_MESSAGE);
+  }
+}
+
+export async function getSp500ProxyQuote(): Promise<Sp500ProxyQuoteResponse> {
+  try {
+    const payload = await fetchAlphaVantageSpyProxy();
+    const { latestDate, latestClose, previousClose } = getLatestDailyBars(
+      payload,
+      SP500_PROXY_INVALID_RESPONSE_MESSAGE,
+    );
+    const fetchedAt = new Date();
+
+    return {
+      ticker: {
+        id: "sp500",
+        label: "S&P500 Proxy",
+        value: formatIndexValue(latestClose),
+        change:
+          previousClose === null
+            ? "日次参照"
+            : formatPercentChange(latestClose, previousClose),
+        direction:
+          previousClose === null
+            ? "flat"
+            : getDirection(latestClose, previousClose),
+        updatedAt: formatJstTime(fetchedAt),
+      },
+      source: {
+        name: "Alpha Vantage",
+        url: ALPHA_VANTAGE_SPY_PROXY_SOURCE_URL,
+        dataDate: latestDate,
+        fetchedAt: fetchedAt.toISOString(),
+        note: "SPY ETF日次参照データです。リアルタイムではありません。S&P500指数そのものではありません。",
+      },
+    };
+  } catch (error) {
+    if (isMarketServiceError(error)) {
+      throw error;
+    }
+
+    throw new MarketServiceError(SP500_PROXY_UNEXPECTED_ERROR_MESSAGE);
   }
 }
 

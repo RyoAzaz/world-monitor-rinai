@@ -6,6 +6,7 @@ import type { ClientFetchStatus } from "@/types/api";
 import type {
   MarketTicker,
   Nasdaq100QuoteResponse,
+  Sp500ProxyQuoteResponse,
   Us10yYieldResponse,
   UsdJpyRateResponse,
   VixIndexResponse,
@@ -33,6 +34,30 @@ const usdjpyErrorTicker: MarketTicker = {
   dataKind: "real",
   note: "Frankfurter日次参照レート・リアルタイムではありません",
   priority: 10,
+};
+
+const sp500ProxyLoadingTicker: MarketTicker = {
+  id: "sp500",
+  label: "S&P500 Proxy",
+  value: "取得中",
+  change: "日次参照",
+  direction: "flat",
+  updatedAt: "--:--",
+  dataKind: "real",
+  note: "SPY ETF日次参照・リアルタイムではありません",
+  priority: 15,
+};
+
+const sp500ProxyErrorTicker: MarketTicker = {
+  id: "sp500",
+  label: "S&P500 Proxy",
+  value: "取得失敗",
+  change: "再読込",
+  direction: "flat",
+  updatedAt: "--:--",
+  dataKind: "real",
+  note: "SPY ETF日次参照・リアルタイムではありません",
+  priority: 15,
 };
 
 const nasdaq100LoadingTicker: MarketTicker = {
@@ -112,6 +137,11 @@ export function TopBar() {
     useState<MarketTicker>(usdjpyLoadingTicker);
   const [usdJpyStatus, setUsdJpyStatus] =
     useState<ClientFetchStatus>("loading");
+  const [sp500ProxyTicker, setSp500ProxyTicker] = useState<MarketTicker>(
+    sp500ProxyLoadingTicker,
+  );
+  const [sp500ProxyStatus, setSp500ProxyStatus] =
+    useState<ClientFetchStatus>("loading");
   const [nasdaq100Ticker, setNasdaq100Ticker] = useState<MarketTicker>(
     nasdaq100LoadingTicker,
   );
@@ -183,6 +213,33 @@ export function TopBar() {
       }
     }
 
+    async function loadSp500Proxy() {
+      try {
+        const response = await fetch("/api/market/sp500-proxy");
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch S&P500 proxy.");
+        }
+
+        const data = (await response.json()) as Sp500ProxyQuoteResponse;
+
+        if (!ignore) {
+          setSp500ProxyTicker({
+            ...data.ticker,
+            dataKind: "real",
+            note: sp500ProxyLoadingTicker.note,
+            priority: sp500ProxyLoadingTicker.priority,
+          });
+          setSp500ProxyStatus("ready");
+        }
+      } catch {
+        if (!ignore) {
+          setSp500ProxyTicker(sp500ProxyErrorTicker);
+          setSp500ProxyStatus("error");
+        }
+      }
+    }
+
     async function loadUs10y() {
       try {
         const response = await fetch("/api/market/us10y");
@@ -238,6 +295,7 @@ export function TopBar() {
     }
 
     void loadUsdJpy();
+    void loadSp500Proxy();
     void loadNasdaq100();
     void loadVix();
     void loadUs10y();
@@ -251,6 +309,7 @@ export function TopBar() {
     () =>
       [
         usdJpyTicker,
+        sp500ProxyTicker,
         nasdaq100Ticker,
         vixTicker,
         us10yTicker,
@@ -261,23 +320,26 @@ export function TopBar() {
 
         return priorityA - priorityB;
       }),
-    [nasdaq100Ticker, us10yTicker, usdJpyTicker, vixTicker],
+    [nasdaq100Ticker, sp500ProxyTicker, us10yTicker, usdJpyTicker, vixTicker],
   );
 
   return (
     <header className="top-bar" aria-label="主要マーケット指標">
       {tickers.map((ticker) => {
         const isUsdJpy = ticker.id === "usdjpy";
+        const isSp500Proxy = ticker.id === "sp500";
         const isNasdaq100 = ticker.id === "nasdaq";
         const isVix = ticker.id === "vix";
         const isUs10y = ticker.id === "us10y";
         const isLoading =
           (isUsdJpy && usdJpyStatus === "loading") ||
+          (isSp500Proxy && sp500ProxyStatus === "loading") ||
           (isNasdaq100 && nasdaq100Status === "loading") ||
           (isVix && vixStatus === "loading") ||
           (isUs10y && us10yStatus === "loading");
         const isError =
           (isUsdJpy && usdJpyStatus === "error") ||
+          (isSp500Proxy && sp500ProxyStatus === "error") ||
           (isNasdaq100 && nasdaq100Status === "error") ||
           (isVix && vixStatus === "error") ||
           (isUs10y && us10yStatus === "error");

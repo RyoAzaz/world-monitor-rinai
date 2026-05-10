@@ -31,6 +31,11 @@ export type Nasdaq100QuoteResponse = {
   source: MarketDataSource;
 };
 
+export type Sp500ProxyQuoteResponse = {
+  ticker: MarketTicker;
+  source: MarketDataSource;
+};
+
 export type Us10yYieldResponse = {
   ticker: MarketTicker;
   source: MarketDataSource;

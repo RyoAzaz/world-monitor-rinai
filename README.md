@@ -36,7 +36,7 @@ npm.cmd run build
 
 ## 環境変数
 
-NASDAQ100 Proxy（QQQ ETF）の取得にはAlpha Vantage APIキー、米10年金利とVIXの取得にはFRED APIキーが必要です。`.env.local` に次の値を設定します。
+NASDAQ100 Proxy（QQQ ETF）とS&P500 Proxy（SPY ETF）の取得にはAlpha Vantage APIキー、米10年金利とVIXの取得にはFRED APIキーが必要です。`.env.local` に次の値を設定します。
 
 ```txt
 ALPHA_VANTAGE_API_KEY=your_api_key_here
@@ -81,6 +81,7 @@ FRED_API_KEY=your_fred_api_key_here
 
 Frankfurter APIのUSDJPYは日次参照レートです。リアルタイム為替レートではありません。
 Alpha VantageのQQQ ETFは日次参照データです。リアルタイム価格ではありません。無料枠は25 requests/dayを前提に、サーバー側で3600秒以上の再検証間隔を設定しています。
+Alpha VantageのSPY ETFは日次参照データです。リアルタイム価格ではありません。S&P500指数そのものではなく、S&P500に連動するETFを使ったProxy表示です。
 FRED APIのDGS10は米10年国債利回りの日次参照データです。リアルタイム金利ではありません。
 FRED APIのVIXCLSはVIXの日次終値データです。リアルタイムのVIX指数ではありません。
 
@@ -119,6 +120,16 @@ summaryはRSS itemの `description` または `summary` のみを使用します
 - サーバー側API Route: `/api/market/vix`
 - TopBarのVIXカード追加
 
+## Phase5で追加した内容
+
+- S&P500 Proxy（SPY ETF）の実データ接続
+- サーバー側API Route: `/api/market/sp500-proxy`
+- Alpha Vantage APIによるSPY ETF日次データ取得
+- Alpha Vantage ETF日次取得処理の共通化
+- TopBarのS&P500 Proxyカード追加
+
+SPY ETFはS&P500指数そのものではありません。ETFの価格にはトラッキングエラー、分配金、経費率、取引時間差などが影響する可能性があります。Phase5では米国市場全体のProxyとして表示します。
+
 初期RSSソース:
 
 - JPX: `https://www.jpx.co.jp/rss/markets_news.xml`
@@ -129,12 +140,15 @@ summaryはRSS itemの `description` または `summary` のみを使用します
 
 ```txt
 src/server/services/market-service.ts
-  USDJPY/NASDAQ100 Proxy/DGS10/VIXCLS取得処理、外部APIレスポンス検証、表示用データ整形
+  USDJPY/S&P500 Proxy/NASDAQ100 Proxy/DGS10/VIXCLS取得処理、外部APIレスポンス検証、表示用データ整形
 
 src/app/api/market/usdjpy/route.ts
   service呼び出しとHTTPレスポンス変換
 
 src/app/api/market/nasdaq100/route.ts
+  service呼び出しとHTTPレスポンス変換
+
+src/app/api/market/sp500-proxy/route.ts
   service呼び出しとHTTPレスポンス変換
 
 src/app/api/market/us10y/route.ts
@@ -191,7 +205,7 @@ src/app/api/map-events/news/route.ts
 
 ## 今後の予定
 
-- 日経平均、SOX、VIX、TOPIXなどのマーケットデータ追加設計
+- 日経平均、SOX、TOPIXなどのマーケットデータ追加設計
 - RSS取得のtimeout、source別status、部分失敗表示
 - ニュース分類と地図イベントseverityルールの精度改善
 - 地図データとイベントデータの精度向上
