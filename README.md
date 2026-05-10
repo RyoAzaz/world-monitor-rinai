@@ -86,11 +86,15 @@ Alpha VantageのQQQ ETFは日次参照データです。リアルタイム価格
 - `regionTags` のルールベース付与
 - `marketImpact: high / medium / low` のルールベース判定
 - NewsPanelのLoading/Error表示
+- ニュース由来の地図イベントAPI: `/api/map-events/news`
+- ニュースの `regionTags` と `marketImpact` を使った地図上の代表点表示
 
 ニュースは公式RSSに含まれる `title / source / url / publishedAt / summary` 程度の短い情報だけを表示します。記事本文のスクレイピング、長文本文の保存・再配布、AI要約、DB保存は行っていません。
 summaryはRSS itemの `description` または `summary` のみを使用します。本文に近い `content:encoded` は再配布リスクを避けるため使用しません。summaryが空の場合、NewsPanelでは「概要なし」と控えめに表示します。
 
 金融庁RSSのように `JST` 表記の日時が含まれる場合は、サーバー側で `+0900` として正規化します。`regionTags` は日本に加え、アジア、ASEAN、ADB、G7、G20、IMFをルールベースで付与します。`marketImpact` は採用、職員募集、調達、入札公告、メンテナンスなどを低影響として優先判定します。
+
+地図上のニュース点は、ニュースに関連する地域の代表点です。正確な発生地点、取引所所在地、当局所在地、または記事本文から抽出した位置情報ではありません。同一 `regionTag` のニュースは地図イベントとして集約し、件数と最大影響度を表示します。
 
 初期RSSソース:
 
@@ -127,6 +131,15 @@ src/server/services/news-service.ts
 
 src/app/api/news/route.ts
   service呼び出しとHTTPレスポンス変換
+
+src/server/providers/map/region-coordinates.ts
+  regionTagsと地図上の代表座標の対応表
+
+src/server/services/news-map-service.ts
+  NewsItemからニュース由来の地図イベントへの集約
+
+src/app/api/map-events/news/route.ts
+  ニュース由来地図イベントのHTTPレスポンス変換
 ```
 
 ## Phase2以降の予定

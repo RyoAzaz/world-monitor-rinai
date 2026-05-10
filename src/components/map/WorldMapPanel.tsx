@@ -9,6 +9,11 @@ import maplibregl, {
 } from "maplibre-gl";
 import { mockMapEvents } from "@/data/mockMapEvents";
 import type { MapEvent, NewsImpact } from "@/types/dashboard";
+import type {
+  MapEventSeverity,
+  NewsMapEvent,
+  NewsMapEventsResponse,
+} from "@/types/map";
 
 type RegionFeature = {
   type: "Feature";
@@ -150,10 +155,22 @@ const worldRegionsGeoJson: RegionFeatureCollection = {
   ],
 };
 
-const severityClassName: Record<NewsImpact, string> = {
-  高: "map-marker--high",
-  中: "map-marker--medium",
-  低: "map-marker--medium",
+const severityClassName: Record<MapEventSeverity, string> = {
+  high: "map-marker--high",
+  medium: "map-marker--medium",
+  low: "map-marker--low",
+};
+
+const severityLabel: Record<MapEventSeverity, string> = {
+  high: "高",
+  medium: "中",
+  low: "低",
+};
+
+const legacySeverityMap: Record<NewsImpact, MapEventSeverity> = {
+  高: "high",
+  中: "medium",
+  低: "low",
 };
 
 function addWorldLayers(map: MapLibreMap) {
@@ -191,23 +208,91 @@ function addWorldLayers(map: MapLibreMap) {
   }
 }
 
-function createMarkerElement(event: MapEvent) {
+function createMarkerElement(event: NewsMapEvent) {
   const markerElement = document.createElement("button");
   markerElement.type = "button";
   markerElement.className = `map-marker ${severityClassName[event.severity]}`;
-  markerElement.setAttribute("aria-label", `${event.country}: ${event.title}`);
+  markerElement.setAttribute(
+    "aria-label",
+    `${event.regionLabel}: ${event.topNewsTitle}`,
+  );
 
   return markerElement;
 }
 
-function createPopup(event: MapEvent) {
+function createPopup(event: NewsMapEvent) {
+  const popupElement = document.createElement("div");
+  popupElement.className = "map-popup";
+
+  const titleElement = document.createElement("p");
+  titleElement.className = "map-popup__title";
+  titleElement.textContent = event.title;
+
+  const metaElement = document.createElement("p");
+  metaElement.className = "map-popup__meta";
+  metaElement.textContent = `${event.regionLabel} ・ ${event.itemCount}件 ・ 最大影響度 ${severityLabel[event.severity]}`;
+
+  const newsElement = document.createElement("p");
+  newsElement.className = "map-popup__meta";
+  newsElement.textContent = `代表ニュース: ${event.topNewsTitle}`;
+
+  const noteElement = document.createElement("p");
+  noteElement.className = "map-popup__meta";
+  noteElement.textContent = "関連地域の代表点です。発生地点ではありません。";
+
+  popupElement.append(titleElement, metaElement, newsElement, noteElement);
+
   return new maplibregl.Popup({
     closeButton: false,
     closeOnClick: true,
     offset: 14,
-  }).setHTML(
-    `<div class="map-popup"><p class="map-popup__title">${event.title}</p><p class="map-popup__meta">${event.country} ・ ${event.category} ・ 影響度 ${event.severity}</p></div>`,
-  );
+  }).setDOMContent(popupElement);
+}
+
+function toFallbackNewsMapEvent(event: MapEvent): NewsMapEvent {
+  return {
+    id: `mock:${event.id}`,
+    title: event.title,
+    regionTag: event.country,
+    regionLabel: event.country,
+    coordinates: event.coordinates,
+    severity: legacySeverityMap[event.severity],
+    itemCount: 1,
+    source: "mock",
+    latestPublishedAt: new Date().toISOString(),
+    topNewsTitle: event.title,
+    isRepresentativePoint: true,
+  };
+}
+
+async function fetchNewsMapEvents() {
+  const response = await fetch("/api/map-events/news", { cache: "no-store" });
+
+  if (!response.ok) {
+    throw new Error("ニュース由来の地図イベント取得に失敗しました。");
+  }
+
+  const payload = (await response.json()) as NewsMapEventsResponse;
+
+  return payload.events;
+}
+
+function addEventMarkers(
+  map: MapLibreMap,
+  markers: Marker[],
+  events: NewsMapEvent[],
+) {
+  for (const event of events) {
+    const marker = new maplibregl.Marker({
+      anchor: "center",
+      element: createMarkerElement(event),
+    })
+      .setLngLat(event.coordinates)
+      .setPopup(createPopup(event))
+      .addTo(map);
+
+    markers.push(marker);
+  }
 }
 
 export function WorldMapPanel() {
@@ -237,23 +322,41 @@ export function WorldMapPanel() {
       "top-left",
     );
 
+    let isActive = true;
+
     map.once("load", () => {
       addWorldLayers(map);
 
-      for (const event of mockMapEvents) {
-        const marker = new maplibregl.Marker({
-          anchor: "center",
-          element: createMarkerElement(event),
-        })
-          .setLngLat(event.coordinates)
-          .setPopup(createPopup(event))
-          .addTo(map);
+      void fetchNewsMapEvents()
+        .then((events) => {
+          if (!isActive) {
+            return;
+          }
 
-        markers.push(marker);
-      }
+          addEventMarkers(
+            map,
+            markers,
+            events.length > 0
+              ? events
+              : mockMapEvents.map(toFallbackNewsMapEvent),
+          );
+        })
+        .catch(() => {
+          if (!isActive) {
+            return;
+          }
+
+          addEventMarkers(
+            map,
+            markers,
+            mockMapEvents.map(toFallbackNewsMapEvent),
+          );
+        });
     });
 
     return () => {
+      isActive = false;
+
       for (const marker of markers) {
         marker.remove();
       }
@@ -270,7 +373,9 @@ export function WorldMapPanel() {
           <h1 className="panel__title" id="map-panel-title">
             世界地図モニター
           </h1>
-          <p className="panel__subtitle">地政学イベントと市場材料を地域別に表示</p>
+          <p className="panel__subtitle">
+            ニュースに関連する地域の代表点を表示。正確な発生地点ではありません。
+          </p>
         </div>
       </div>
       <div className="map-panel__canvas" ref={containerRef} />
@@ -282,6 +387,10 @@ export function WorldMapPanel() {
         <span className="legend-item">
           <span className="legend-dot legend-dot--medium" />
           影響度 中
+        </span>
+        <span className="legend-item">
+          <span className="legend-dot legend-dot--low" />
+          影響度 低
         </span>
       </div>
     </section>

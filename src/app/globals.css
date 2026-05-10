@@ -195,6 +195,11 @@ select {
   background: var(--warning);
 }
 
+.legend-dot--low,
+.map-marker--low {
+  background: var(--accent);
+}
+
 .map-marker {
   width: 16px;
   height: 16px;
